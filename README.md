@@ -5,9 +5,9 @@
 Make sure you have **Docker Desktop** and **Docker Compose** installed.
 
 ### 🔗 Installation Links
-- **Docker Desktop for Mac**: https://docs.docker.com/desktop/install/mac/
-- **Docker Desktop for Windows**: https://docs.docker.com/desktop/install/windows/
-- **Docker Engine for Linux**: https://docs.docker.com/engine/install/
+- **Docker Desktop for Mac**: https://docs.docker.com/desktop/setup/install/mac-install/
+- **Docker Desktop for Windows**: https://docs.docker.com/desktop/setup/install/windows-install/
+- **Docker Engine for Linux**: https://docs.docker.com/desktop/setup/install/linux/
 
 ### ✅ Check if Docker is installed:
 Open your terminal and run:
@@ -36,7 +36,10 @@ git clone <githubrepolink>
 - Fill in the values. *Note:* Cloudinary config is optional if you're not uploading images yet.
 
 5. **Make sure Docker Desktop is running.**
-
+- Create docker network to connect all of the containers.
+```bash
+docker network create terramoapp_local_nw
+```
 ---
 
 ## ⚙️ Running the Project
