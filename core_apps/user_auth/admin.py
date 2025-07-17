@@ -17,7 +17,7 @@ class CustomUserAdmin(UserAdmin):
         "email",
         "first_name",
         "last_name",
-        "company",
+        "client",
         "role",
         # "is_company_admin",
         # "is_decision_maker",
@@ -51,7 +51,7 @@ class CustomUserAdmin(UserAdmin):
             {
                 "fields": (
                     "account_status",
-                    "company",
+                    "client",
                     "role",
                     # "is_company_admin",
                     # "is_decision_maker",

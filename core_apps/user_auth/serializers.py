@@ -11,11 +11,11 @@ class UserCreateSerializer(DjoserUserCreateSerializer):
         model = User
         fields = [
             "email",
+            "client",
             "username",
             "password",
             "first_name",
             "last_name",
-     
         ]
 
     def create(self, validated_data):

@@ -22,7 +22,7 @@ urlpatterns = [
         name="redoc",
     ),
     path("api/v1/auth/", include("djoser.urls")),
-    path("api/v1/stakeholders/", include("core_apps.companydata.urls")),
+    # path("api/v1/stakeholders/", include("core_apps.companydata.urls")),
     
 ]
 

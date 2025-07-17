@@ -4,7 +4,8 @@ from django.conf import settings
 from django.contrib.auth.models import AbstractUser
 from django.utils import timezone
 from django.utils.translation import gettext_lazy as _
-from core_apps.companydata.models import Company
+# from core_apps.companydata.models import Company
+from core_apps.clients.models import Client
 from .emails import send_account_locked_email
 from .managers import UserManager
 # from core_apps.company.models import Company
@@ -52,7 +53,7 @@ class User(AbstractUser):
         _("Middle Name"), max_length=30, blank=True, null=True
     )
     last_name = models.CharField(_("Last Name"), max_length=30)
-    company = models.ForeignKey(Company, on_delete=models.CASCADE, null=True, blank=True, related_name='users')
+    client = models.ForeignKey(Client, on_delete=models.CASCADE, null=True, blank=True, related_name='client_users')
     role = models.CharField(max_length=20, choices=UserRole.choices, default=UserRole.COMPANY_USER)
     # is_company_admin = models.BooleanField(_("Is Company Admin"), default=False)
     # is_decision_maker = models.BooleanField(_("Is Decision Maker"), default=False)
