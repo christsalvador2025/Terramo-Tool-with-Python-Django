@@ -85,7 +85,7 @@ Log in using the email and password you set with the `createsuperuser` command.
 
 ## 🧭 Dashboard Overview
 
-### 🏢 Company
+### 🏢 Client
 - Create clients or companies.
 - Default stakeholder groups will be automatically created:
   - Customers
@@ -99,7 +99,7 @@ Each is linked to the company and given a unique invite token.
 ### 📦 Products
 - Create products sold inside the Terramo platform.
 
-### 🏢 Company Products
+### 🏢 Client Products
 - Represents products purchased by a company.
 - Requires both company and product to be created first.
 - `purchased_at` is automatically timestamped.
