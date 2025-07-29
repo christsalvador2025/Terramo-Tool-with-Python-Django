@@ -130,7 +130,7 @@ class ClientViewDataSet(ModelViewSet):
     ViewSet for managing clients
     Provides CRUD operations for clients with products and invitations
     """
-    parser_classes = (MultiPartParser, FormParser)
+    # parser_classes = (MultiPartParser, FormParser)
     permission_classes = [IsAuthenticated, IsTerramoAdmin]
     queryset = Client.objects.select_related('created_by').prefetch_related(
         'clientproduct_set__product',
