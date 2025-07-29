@@ -16,6 +16,7 @@ if path.isfile(local_env_file):
     load_dotenv(local_env_file)
 
 DOMAIN = getenv("DOMAIN")
+API_VERSION = getenv("API_VERSION")
 # Application definition
 
 DJANGO_APPS = [
@@ -27,10 +28,13 @@ DJANGO_APPS = [
     "django.contrib.staticfiles",
     "django.contrib.sites",
     "django.contrib.humanize",
+    
 ]
 
 THIRD_PARTY_APPS = [
+    "corsheaders",
     "rest_framework",
+    'rest_framework_simplejwt.token_blacklist',
     "django_countries",
     "phonenumber_field",
     "drf_spectacular",
@@ -44,7 +48,12 @@ THIRD_PARTY_APPS = [
 LOCAL_APPS = [
     "core_apps.user_auth",
     "core_apps.common",
-    "core_apps.user_profile",
+    "core_apps.products",
+    "core_apps.clients",
+    "core_apps.esg",
+    "core_apps.stakeholder_analysis",
+    # "core_apps.materiality_analysis",
+    # "core_apps.user_profile",
     # "core_apps.company",
     # "core_apps.company_module_access",
     # "core_apps.terramo_module",
@@ -53,7 +62,7 @@ LOCAL_APPS = [
     # "core_apps.esg_check",
     # "core_apps.organisation",
     # "core_apps.customer",
-    "core_apps.companydata",
+    # "core_apps.companydata",
     # "core_apps.accounts",
     # "core_apps.cards",
 ]
@@ -61,15 +70,26 @@ LOCAL_APPS = [
 INSTALLED_APPS = DJANGO_APPS + THIRD_PARTY_APPS + LOCAL_APPS
 
 MIDDLEWARE = [
+    "corsheaders.middleware.CorsMiddleware",
+    "django.middleware.common.CommonMiddleware",
     "django.middleware.security.SecurityMiddleware",
     "django.contrib.sessions.middleware.SessionMiddleware",
-    "django.middleware.common.CommonMiddleware",
     "django.middleware.csrf.CsrfViewMiddleware",
     "django.contrib.auth.middleware.AuthenticationMiddleware",
     "django.contrib.messages.middleware.MessageMiddleware",
     "django.middleware.clickjacking.XFrameOptionsMiddleware",
-    "core_apps.user_auth.middleware.CustomHeaderMiddleware",
+ 
+  
+    # "core_apps.user_auth.middleware.CustomHeaderMiddleware",
 ]
+
+CORS_ALLOWED_ORIGINS = [
+    "http://localhost:3000",
+    "http://localhost:5173"
+]
+
+
+CORS_ALLOW_CREDENTIALS = True
 
 ROOT_URLCONF = "config.urls"
 
@@ -159,8 +179,10 @@ AUTH_USER_MODEL = "user_auth.User"
 DEFAULT_BIRTH_DATE = date(1900, 1, 1)
 DEFAULT_DATE = date(2000, 1, 1)
 DEFAULT_EXPIRY_DATE = date(2024, 1, 1)
-DEFAULT_COUNTRY = "US"
-DEFAULT_PHONE_NUMBER = "+250784123456"
+DEFAULT_COUNTRY = "DE"
+DEFAULT_LANDLINE_NUMBER = "+43 123 456789"
+DEFAULT_PHONE_NUMBER = "+43 123 1234567"
+
 REST_FRAMEWORK = {
     "DEFAULT_SCHEMA_CLASS": "drf_spectacular.openapi.AutoSchema",
     "DEFAULT_AUTHENTICATION_CLASSES": [
@@ -189,13 +211,14 @@ SIMPLE_JWT = {
     "ACCESS_TOKEN_LIFETIME": timedelta(minutes=30),
     "REFRESH_TOKEN_LIFETIME": timedelta(days=1),
     "ROTATE_REFRESH_TOKENS": True,
-    "USER_ID_FIELD": "id", # database user inlcuded to generated tokens
+    "BLACKLIST_AFTER_ROTATION": True,
+    "USER_ID_FIELD": "id", # database user inlcuded to generated tokens | database field
     "USER_ID_CLAIM": "user_id", # store user identifiers
 }
 
 DJOSER = {
-    "USER_ID_FIELD": "id",
-    "LOGIN_FIELD": "email", 
+    "USER_ID_FIELD": "id",  
+    "LOGIN_FIELD": "email",  
     "TOKEN_MODEL": None,
     "USER_CREATE_PASSWORD_RETYPE": True,
     "SEND_ACTIVATION_EMAIL": True,
@@ -256,7 +279,7 @@ cloudinary.config(
 
 COOKIE_NAME = "access"
 
-COOKIE_SAMESITE = "Lax"
+COOKIE_SAMESITE = "Lax" 
 
 COOKIE_PATH = "/"
 

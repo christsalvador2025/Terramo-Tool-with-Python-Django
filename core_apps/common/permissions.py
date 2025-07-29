@@ -1,9 +1,9 @@
 from rest_framework import permissions
 
-class IsSuperAdmin(permissions.BasePermission):
+class IsTerramoAdmin(permissions.BasePermission):
     """Only Super Admin can access"""
     def has_permission(self, request, view):
-        return request.user.is_authenticated and request.user.role == 'super_admin'
+        return request.user.is_authenticated and request.user.role in ['super_admin', 'terramo_admin']
 
 class IsCompanyAdmin(permissions.BasePermission):
     """Company Admin and Super Admin can access"""

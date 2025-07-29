@@ -1,65 +1,80 @@
 import uuid
-from django.db import models
-from django.conf import settings
-from django.contrib.auth.models import AbstractUser
 from django.utils import timezone
+from django.db import models
+from django.contrib.auth.models import AbstractUser, UserManager as BaseUserManager
+from django.db.models import UniqueConstraint
+from django.db.models.functions import Lower
 from django.utils.translation import gettext_lazy as _
-from core_apps.companydata.models import Company
-from .emails import send_account_locked_email
 from .managers import UserManager
-# from core_apps.company.models import Company
-# from core_apps.companydata.models import Company
-class User(AbstractUser):
-    # uncomment if needed
-    # class SecurityQuestions(models.TextChoices):
-    #     MAIDEN_NAME = (
-    #         "maiden_name",
-    #         _("What is your mother's maiden name?"),
-    #     )
-    #     FAVORITE_COLOR = (
-    #         "favorite_color",
-    #         _("What is your favorite color?"),
-    #     )
-    #     BIRTH_CITY = ("birth_city", _("What is the city where you were born?"))
-    #     CHILDHOOD_FRIEND = (
-    #         "childhood_friend",
-    #         _("What is the name of your childhood best friend?"),
-    #     )
-    class UserRole(models.TextChoices):
-        SUPER_ADMIN = 'super_admin', 'Super Admin'
-        COMPANY_ADMIN = 'company_admin', 'Company Admin'
-        COMPANY_USER = 'company_user', 'Company User'
-        STAKEHOLDER = 'stakeholder', 'Stakeholder'
+from django.conf import settings
 
+# Assuming your Client model is in 'core_apps.clients.models'
+# We'll import it here, but ensure there are no circular imports if Client also imports CustomUser
+# For simplicity, I'll place Client model in core_apps/clients/models.py first.
+# If you have a TimeStampedModel base class, inherit from it.
+# For this example, I'll add created_at and updated_at directly to CustomUser and Invitation.
+
+
+# Custom Manager to handle email as the primary identifier (USERNAME_FIELD)
+# class CustomUserManager(BaseUserManager):
+#     def create_user(self, email, password=None, **extra_fields):
+#         if not email:
+#             raise ValueError(_('The Email field must be set'))
+#         email = self.normalize_email(email)
+#         user = self.model(email=email, **extra_fields)
+#         user.set_password(password)
+#         user.save(using=self._db)
+#         return user
+
+#     def create_superuser(self, email, password=None, **extra_fields):
+#         extra_fields.setdefault('is_staff', True)
+#         extra_fields.setdefault('is_superuser', True)
+#         extra_fields.setdefault('is_active', True)
+#         extra_fields.setdefault('role', UserRole.TERRAMO_ADMIN) # Default superuser to Terramo Admin
+
+#         if extra_fields.get('is_staff') is not True:
+#             raise ValueError(_('Superuser must have is_staff=True.'))
+#         if extra_fields.get('is_superuser') is not True:
+#             raise ValueError(_('Superuser must have is_superuser=True.'))
+        
+#         # Superusers (Terramo Admins) do not have a client
+#         if 'client' in extra_fields:
+#             del extra_fields['client'] # Ensure client is not set for superusers
+
+#         return self.create_user(email, password, **extra_fields)
+
+# class UserRole(models.TextChoices):
+#     TERRAMO_ADMIN = 'terramo_admin', 'Terramo Admin'
+#     CLIENT_ADMIN = 'client_admin', 'Client Admin'
+#     STAKEHOLDER = 'stakeholder', 'Stakeholder'
+class UserRole(models.TextChoices):
+    TERRAMO_ADMIN = 'terramo_admin', 'Terramo Admin'
+    CLIENT_ADMIN = 'client_admin', 'Client Admin'
+    STAKEHOLDER = 'stakeholder', 'Stakeholder'
+class User(AbstractUser):
+    
     class AccountStatus(models.TextChoices):
         ACTIVE = "active", _("Active")
         INACTIVE = "inactive", _("Inactive")
         LOCKED = "locked", _("Locked")
 
-    # pkid = models.BigAutoField(primary_key=True, editable=False)
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False, unique=True)
     username = models.CharField(_("Username"), max_length=12, unique=True)
-    # uncomment if needed.
-    # security_question = models.CharField(
-    #     _("Security Question"),
-    #     max_length=30,
-    #     choices=SecurityQuestions.choices,
-    # ) 
-    # security_answer = models.CharField(_("Security Answer"), max_length=30)
+    
+    # email = models.EmailField(_('email address'), unique=False, blank=False, null=False, db_index=True) 
     email = models.EmailField(_("Email"), unique=True, db_index=True)
-    first_name = models.CharField(_("First Name"), max_length=30)
-    middle_name = models.CharField(
-        _("Middle Name"), max_length=30, blank=True, null=True
-    )
-    last_name = models.CharField(_("Last Name"), max_length=30)
-    company = models.ForeignKey(Company, on_delete=models.CASCADE, null=True, blank=True, related_name='users')
-    role = models.CharField(max_length=20, choices=UserRole.choices, default=UserRole.COMPANY_USER)
-    # is_company_admin = models.BooleanField(_("Is Company Admin"), default=False)
-    # is_decision_maker = models.BooleanField(_("Is Decision Maker"), default=False)
-    # company = models.ForeignKey(
-    #     Company, on_delete=models.CASCADE, related_name="users", blank=True, null=True
-    # )
+    # ^ unique=False here because uniqueness is enforced with client via UniqueConstraint
 
+    role = models.CharField(max_length=20, choices=UserRole.choices, default=UserRole.STAKEHOLDER)
+    
+    # Client ForeignKey: null=True, blank=True allows Terramo Admins to have no client
+    client = models.ForeignKey(
+        'clients.Client', # Use string reference to avoid circular import
+        on_delete=models.CASCADE, 
+        null=True,        
+        blank=True,       
+        related_name='client_users'
+    )
     date_joined = models.DateTimeField(default=timezone.now)
     is_active = models.BooleanField(default=True)
     account_status = models.CharField(
@@ -72,64 +87,56 @@ class User(AbstractUser):
     last_failed_login = models.DateTimeField(null=True, blank=True)
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
-    # override
-    objects = UserManager()
-    USERNAME_FIELD = "email"
+
+    objects = UserManager() 
+    
+    # Set email as the primary login field
+    USERNAME_FIELD = 'email'
     REQUIRED_FIELDS = [
         "first_name",
-        "last_name",
-        # "id_no",
-        # "security_question",
-        # "security_answer",
-    ]
+        "last_name"
+    ] # No other fields are required for creating a user
 
+    class Meta(AbstractUser.Meta): 
+        # Unique email per client, case-insensitive
+        constraints = [
+            UniqueConstraint(
+                fields=['email', 'client'],
+                name='unique_email_per_client_constraint'
+            ),
+            UniqueConstraint(
+                Lower('email'),
+                'client',
+                name='unique_lower_email_per_client_constraint'
+            )
+        ]
+        verbose_name = _('user')
+        verbose_name_plural = _('users')
+
+    def __str__(self):
+        return self.email # Represent user by email
     def handle_failed_login_attempts(self) -> None:
         self.failed_login_attempts += 1
         self.last_failed_login = timezone.now()
         if self.failed_login_attempts >= settings.LOGIN_ATTEMPTS:
             self.account_status = self.AccountStatus.LOCKED
             self.save()
-            send_account_locked_email(self)
+            # send_account_locked_email(self)
         self.save()
-
-    def reset_failed_login_attempts(self) -> None:
-        self.failed_login_attempts = 0
-        self.last_failed_login = None
-        self.account_status = self.AccountStatus.ACTIVE
-        self.save()
-
-    def unlock_account(self) -> None:
-        if self.account_status == self.AccountStatus.LOCKED:
-            self.account_status = self.AccountStatus.ACTIVE
-            self.failed_login_attempts = 0
-            self.last_failed_login = None
-            self.save()
+    # Helper properties for easy role checking
+    @property
+    def is_terramo_admin(self):
+        return self.role == UserRole.TERRAMO_ADMIN
 
     @property
-    def is_locked_out(self) -> bool:
-        if self.account_status == self.AccountStatus.LOCKED:
-            if (
-                self.last_failed_login
-                and (timezone.now() - self.last_failed_login)
-                > settings.LOCKOUT_DURATION
-            ):
-                self.unlock_account()
-                return False
-            return True
-        return False
+    def is_client_admin(self):
+        return self.role == UserRole.CLIENT_ADMIN
 
+    @property
+    def is_stakeholder(self):
+        return self.role == UserRole.STAKEHOLDER
+    
     @property
     def full_name(self) -> str:
         full_name = f"{self.first_name} {self.last_name}"
         return full_name.title().strip()
-
-    class Meta:
-        verbose_name = _("User")
-        verbose_name_plural = _("Users")
-        ordering = ["-date_joined"]
-
-    def has_role(self, role_name: str) -> bool:
-        return hasattr(self, "role") and self.role == role_name
-
-    def __str__(self) -> str:
-        return f"{self.full_name}"

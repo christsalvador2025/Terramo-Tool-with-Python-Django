@@ -11,17 +11,14 @@ class CustomUserAdmin(UserAdmin):
     add_form = UserCreationForm
     model = User
     list_display = [
-        "username",
-  
         "id",
         "email",
+        "username",
         "first_name",
         "last_name",
-        "company",
+        "client",
         "role",
-        # "is_company_admin",
-        # "is_decision_maker",
-        "is_staff",
+  
         "is_active"
         
     ]
@@ -35,7 +32,7 @@ class CustomUserAdmin(UserAdmin):
             _("Login Credentials"),
             {
                 "fields": (
-                    "username",
+         
                     "email",
                     "password",
                     
@@ -44,14 +41,14 @@ class CustomUserAdmin(UserAdmin):
         ),
         (
             _("Personal Information"),
-            {"fields": ("first_name", "middle_name", "last_name")},
+            {"fields": ("first_name", "last_name")},
         ),
         (
             _("Account Status"),
             {
                 "fields": (
                     "account_status",
-                    "company",
+                    "client",
                     "role",
                     # "is_company_admin",
                     # "is_decision_maker",
@@ -62,18 +59,18 @@ class CustomUserAdmin(UserAdmin):
             },
         ),
         
-        (
-            _("Permissions and Groups"),
-            {
-                "fields": (
-                    "is_active",
-                    "is_staff",
-                    "is_superuser",
-                    "groups",
-                    "user_permissions",
-                )
-            },
-        ),
+        # (
+        #     _("Permissions and Groups"),
+        #     {
+        #         "fields": (
+        #             "is_active",
+        #             "is_staff",
+        #             "is_superuser",
+        #             "groups",
+        #             "user_permissions",
+        #         )
+        #     },
+        # ),
         (
             _("Important dates"),
             {
