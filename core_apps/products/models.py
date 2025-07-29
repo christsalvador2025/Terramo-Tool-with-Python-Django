@@ -7,7 +7,7 @@ from django.conf import settings
 from django.utils.translation import gettext_lazy as _
 from django_countries.fields import CountryField
 import uuid
-from core_apps.common.permissions import IsSuperAdmin, IsCompanyAdmin, IsSameCompany
+from core_apps.common.permissions import IsTerramoAdmin, IsCompanyAdmin, IsSameCompany
 from core_apps.common.models import TimeStampedModel
 from phonenumber_field.modelfields import PhoneNumberField
 from django.contrib.auth import login, authenticate, get_user_model

@@ -12,7 +12,8 @@ class UserCreationForm(DjangoUserCreationForm):
         fields = [
             "email",
             "first_name",
-            "middle_name",
+            "role",
+            "client",
             "last_name",
             # "is_company_admin",
             # "is_decision_maker",
@@ -46,7 +47,8 @@ class UserChangeForm(DjangoUserChangeForm):
         fields = [
             "email",
             "first_name",
-            "middle_name",
+            "role",
+            "client",
             "last_name",
             # "is_company_admin",
             # "is_decision_maker",

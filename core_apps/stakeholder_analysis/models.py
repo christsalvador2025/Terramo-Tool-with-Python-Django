@@ -7,7 +7,7 @@ from django.conf import settings
 from django.utils.translation import gettext_lazy as _
 from django_countries.fields import CountryField
 import uuid
-from core_apps.common.permissions import IsSuperAdmin, IsCompanyAdmin, IsSameCompany
+from core_apps.common.permissions import IsTerramoAdmin, IsCompanyAdmin, IsSameCompany
 from core_apps.common.models import TimeStampedModel
 from core_apps.products.models import Product
 from core_apps.clients.models import Client

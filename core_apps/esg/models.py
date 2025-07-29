@@ -1,7 +1,7 @@
 import uuid
 from django.db import models
 from django.conf import settings  
-from core_apps.common.permissions import IsSuperAdmin, IsCompanyAdmin, IsSameCompany
+from core_apps.common.permissions import IsTerramoAdmin, IsCompanyAdmin, IsSameCompany
 from core_apps.common.models import TimeStampedModel
 from core_apps.products.models import Product
 from core_apps.clients.models import Client

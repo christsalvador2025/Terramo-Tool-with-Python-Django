@@ -16,6 +16,7 @@ if path.isfile(local_env_file):
     load_dotenv(local_env_file)
 
 DOMAIN = getenv("DOMAIN")
+API_VERSION = getenv("API_VERSION")
 # Application definition
 
 DJANGO_APPS = [
@@ -27,10 +28,13 @@ DJANGO_APPS = [
     "django.contrib.staticfiles",
     "django.contrib.sites",
     "django.contrib.humanize",
+    
 ]
 
 THIRD_PARTY_APPS = [
+    "corsheaders",
     "rest_framework",
+    'rest_framework_simplejwt.token_blacklist',
     "django_countries",
     "phonenumber_field",
     "drf_spectacular",
@@ -66,15 +70,26 @@ LOCAL_APPS = [
 INSTALLED_APPS = DJANGO_APPS + THIRD_PARTY_APPS + LOCAL_APPS
 
 MIDDLEWARE = [
+    "corsheaders.middleware.CorsMiddleware",
+    "django.middleware.common.CommonMiddleware",
     "django.middleware.security.SecurityMiddleware",
     "django.contrib.sessions.middleware.SessionMiddleware",
-    "django.middleware.common.CommonMiddleware",
     "django.middleware.csrf.CsrfViewMiddleware",
     "django.contrib.auth.middleware.AuthenticationMiddleware",
     "django.contrib.messages.middleware.MessageMiddleware",
     "django.middleware.clickjacking.XFrameOptionsMiddleware",
+ 
+  
     # "core_apps.user_auth.middleware.CustomHeaderMiddleware",
 ]
+
+CORS_ALLOWED_ORIGINS = [
+    "http://localhost:3000",
+    "http://localhost:5173"
+]
+
+
+CORS_ALLOW_CREDENTIALS = True
 
 ROOT_URLCONF = "config.urls"
 
@@ -196,6 +211,7 @@ SIMPLE_JWT = {
     "ACCESS_TOKEN_LIFETIME": timedelta(minutes=30),
     "REFRESH_TOKEN_LIFETIME": timedelta(days=1),
     "ROTATE_REFRESH_TOKENS": True,
+    "BLACKLIST_AFTER_ROTATION": True,
     "USER_ID_FIELD": "id", # database user inlcuded to generated tokens | database field
     "USER_ID_CLAIM": "user_id", # store user identifiers
 }

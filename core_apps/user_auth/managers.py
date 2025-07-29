@@ -18,7 +18,7 @@ def generate_username() -> str:
     random_chars = "".join(
         random.choices(string.ascii_uppercase + string.digits, k=remaining_length)
     )
-    username = f"{prefix}-{random_chars}"
+    username = f"Terramo-{random_chars}"
     return username
 
 
