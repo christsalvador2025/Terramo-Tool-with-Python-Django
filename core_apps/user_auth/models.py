@@ -59,7 +59,7 @@ class User(AbstractUser):
         LOCKED = "locked", _("Locked")
 
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False, unique=True)
-    username = models.CharField(_("Username"), max_length=12, unique=True)
+    username = models.CharField(_("Username"), max_length=32, unique=True)
     
     # email = models.EmailField(_('email address'), unique=False, blank=False, null=False, db_index=True) 
     email = models.EmailField(_("Email"), unique=True, db_index=True)
