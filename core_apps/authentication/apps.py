@@ -1,6 +1,6 @@
 from django.apps import AppConfig
 
 
-class MaterialityAnalysisConfig(AppConfig):
+class AuthenticationConfig(AppConfig):
     default_auto_field = "django.db.models.BigAutoField"
-    name = "materiality_analysis"
+    name = "core_apps.authentication"

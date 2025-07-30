@@ -237,18 +237,18 @@ import uuid
 from loguru import logger
 
 from core_apps.user_auth.models import User
-from core_apps.clients.models import Client
-from core_apps.stakeholder_analysis.models import StakeholderGroup, StakeholderInvitation
+# from core_apps.clients.models import Client
+# from core_apps.stakeholder_analysis.models import StakeholderGroup, StakeholderInvitation
 from .serializers import (
-    ClientInvitationSerializer,
-    ClientLoginSerializer,
-    StakeholderLoginSerializer,
-    StakeholderRegistrationSerializer,
+    # ClientInvitationSerializer,
+    # ClientLoginSerializer,
+    # StakeholderLoginSerializer,
+    # StakeholderRegistrationSerializer,
     UserProfileSerializer,
-    GenerateLoginLinkSerializer,
-    StakeholderInvitationSerializer,
-    BulkStakeholderInvitationSerializer,
-    DashboardStatsSerializer,
+    # GenerateLoginLinkSerializer,
+    # StakeholderInvitationSerializer,
+    # BulkStakeholderInvitationSerializer,
+    # DashboardStatsSerializer,
     LoginSerializer,
     LogoutSerializer
 )
@@ -705,479 +705,479 @@ class LogoutAPIView(APIView):
 
 
 
-class ClientInvitationView(APIView):
-    """
-    Generate invitation link for Client Admin
-    Only accessible by Terramo Admin (Super Admin)
-    """
-    permission_classes = [permissions.IsAuthenticated]
+# class ClientInvitationView(APIView):
+#     """
+#     Generate invitation link for Client Admin
+#     Only accessible by Terramo Admin (Super Admin)
+#     """
+#     permission_classes = [permissions.IsAuthenticated]
     
-    def post(self, request):
-        if not request.user.role == User.UserRole.SUPER_ADMIN:
-            return Response(
-                {"error": "Only Super Admin can create client invitations"},
-                status=status.HTTP_403_FORBIDDEN
-            )
+#     def post(self, request):
+#         if not request.user.role == User.UserRole.SUPER_ADMIN:
+#             return Response(
+#                 {"error": "Only Super Admin can create client invitations"},
+#                 status=status.HTTP_403_FORBIDDEN
+#             )
         
-        serializer = ClientInvitationSerializer(data=request.data)
-        if serializer.is_valid():
-            try:
-                with transaction.atomic():
-                    client = serializer.save()
+#         serializer = ClientInvitationSerializer(data=request.data)
+#         if serializer.is_valid():
+#             try:
+#                 with transaction.atomic():
+#                     client = serializer.save()
                     
-                    # Generate invitation token
-                    invitation_token = str(uuid.uuid4())
+#                     # Generate invitation token
+#                     invitation_token = str(uuid.uuid4())
                     
-                    # Set expiration (24 hours from now)
-                    expires_at = timezone.now() + timedelta(hours=24)
+#                     # Set expiration (24 hours from now)
+#                     expires_at = timezone.now() + timedelta(hours=24)
                     
-                    # Store invitation details in client model or create a separate invitation model
-                    client.invitation_token = invitation_token
-                    client.invitation_expires_at = expires_at
-                    client.save()
+#                     # Store invitation details in client model or create a separate invitation model
+#                     client.invitation_token = invitation_token
+#                     client.invitation_expires_at = expires_at
+#                     client.save()
                     
-                    # Generate invitation link
-                    invitation_link = f"{settings.DOMAIN}/auth/client-login/{invitation_token}/"
+#                     # Generate invitation link
+#                     invitation_link = f"{settings.DOMAIN}/auth/client-login/{invitation_token}/"
                     
-                    # Send invitation email
-                    self._send_invitation_email(client, invitation_link)
+#                     # Send invitation email
+#                     self._send_invitation_email(client, invitation_link)
                     
-                    return Response({
-                        "message": "Client invitation created successfully",
-                        "invitation_link": invitation_link,
-                        "client_id": client.id,
-                        "expires_at": expires_at
-                    }, status=status.HTTP_201_CREATED)
+#                     return Response({
+#                         "message": "Client invitation created successfully",
+#                         "invitation_link": invitation_link,
+#                         "client_id": client.id,
+#                         "expires_at": expires_at
+#                     }, status=status.HTTP_201_CREATED)
                     
-            except Exception as e:
-                logger.error(f"Error creating client invitation: {str(e)}")
-                return Response(
-                    {"error": "Failed to create client invitation"},
-                    status=status.HTTP_500_INTERNAL_SERVER_ERROR
-                )
+#             except Exception as e:
+#                 logger.error(f"Error creating client invitation: {str(e)}")
+#                 return Response(
+#                     {"error": "Failed to create client invitation"},
+#                     status=status.HTTP_500_INTERNAL_SERVER_ERROR
+#                 )
         
-        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+#         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
     
-    def _send_invitation_email(self, client, invitation_link):
-        """Send invitation email to client admin"""
-        try:
-            subject = f"Invitation to Terramo Survey Platform - {client.company_name}"
-            html_message = render_to_string('emails/client_invitation.html', {
-                'client': client,
-                'invitation_link': invitation_link,
-                'expires_at': client.invitation_expires_at
-            })
+#     def _send_invitation_email(self, client, invitation_link):
+#         """Send invitation email to client admin"""
+#         try:
+#             subject = f"Invitation to Terramo Survey Platform - {client.company_name}"
+#             html_message = render_to_string('emails/client_invitation.html', {
+#                 'client': client,
+#                 'invitation_link': invitation_link,
+#                 'expires_at': client.invitation_expires_at
+#             })
             
-            send_mail(
-                subject=subject,
-                message=f"Click this link to access your dashboard: {invitation_link}",
-                from_email=settings.DEFAULT_FROM_EMAIL,
-                recipient_list=[client.email],
-                html_message=html_message,
-                fail_silently=False,
-            )
-            logger.info(f"Invitation email sent to {client.email}")
-        except Exception as e:
-            logger.error(f"Failed to send invitation email: {str(e)}")
+#             send_mail(
+#                 subject=subject,
+#                 message=f"Click this link to access your dashboard: {invitation_link}",
+#                 from_email=settings.DEFAULT_FROM_EMAIL,
+#                 recipient_list=[client.email],
+#                 html_message=html_message,
+#                 fail_silently=False,
+#             )
+#             logger.info(f"Invitation email sent to {client.email}")
+#         except Exception as e:
+#             logger.error(f"Failed to send invitation email: {str(e)}")
 
 
-class ClientLoginView(APIView):
-    """
-    Handle Client Admin login via invitation link
-    """
-    permission_classes = [permissions.AllowAny]
+# class ClientLoginView(APIView):
+#     """
+#     Handle Client Admin login via invitation link
+#     """
+#     permission_classes = [permissions.AllowAny]
     
-    def get(self, request, invitation_token):
-        """Validate invitation token and redirect to login form"""
-        try:
-            client = get_object_or_404(
-                Client,
-                invitation_token=invitation_token,
-                invitation_expires_at__gt=timezone.now()
-            )
+#     def get(self, request, invitation_token):
+#         """Validate invitation token and redirect to login form"""
+#         try:
+#             client = get_object_or_404(
+#                 Client,
+#                 invitation_token=invitation_token,
+#                 invitation_expires_at__gt=timezone.now()
+#             )
             
-            return Response({
-                "message": "Valid invitation token",
-                "client_id": client.id,
-                "company_name": client.company_name,
-                "email": client.email
-            }, status=status.HTTP_200_OK)
+#             return Response({
+#                 "message": "Valid invitation token",
+#                 "client_id": client.id,
+#                 "company_name": client.company_name,
+#                 "email": client.email
+#             }, status=status.HTTP_200_OK)
             
-        except Client.DoesNotExist:
-            return Response(
-                {"error": "Invalid or expired invitation token"},
-                status=status.HTTP_404_NOT_FOUND
-            )
+#         except Client.DoesNotExist:
+#             return Response(
+#                 {"error": "Invalid or expired invitation token"},
+#                 status=status.HTTP_404_NOT_FOUND
+#             )
     
-    def post(self, request, invitation_token):
-        """Process Client Admin login"""
-        try:
-            client = get_object_or_404(
-                Client,
-                invitation_token=invitation_token,
-                invitation_expires_at__gt=timezone.now()
-            )
+#     def post(self, request, invitation_token):
+#         """Process Client Admin login"""
+#         try:
+#             client = get_object_or_404(
+#                 Client,
+#                 invitation_token=invitation_token,
+#                 invitation_expires_at__gt=timezone.now()
+#             )
             
-            serializer = ClientLoginSerializer(data=request.data)
-            if serializer.is_valid():
-                email = serializer.validated_data['email']
+#             serializer = ClientLoginSerializer(data=request.data)
+#             if serializer.is_valid():
+#                 email = serializer.validated_data['email']
                 
-                # Validate email matches invitation
-                if email != client.email:
-                    return Response(
-                        {"error": "Email does not match invitation"},
-                        status=status.HTTP_400_BAD_REQUEST
-                    )
+#                 # Validate email matches invitation
+#                 if email != client.email:
+#                     return Response(
+#                         {"error": "Email does not match invitation"},
+#                         status=status.HTTP_400_BAD_REQUEST
+#                     )
                 
-                # Get or create user
-                user, created = User.objects.get_or_create(
-                    email=email,
-                    defaults={
-                        'username': email,
-                        'first_name': client.contact_person_first_name or '',
-                        'last_name': client.contact_person_last_name or '',
-                        'role': User.UserRole.COMPANY_ADMIN,
-                        'client': client,
-                        'is_active': True
-                    }
-                )
+#                 # Get or create user
+#                 user, created = User.objects.get_or_create(
+#                     email=email,
+#                     defaults={
+#                         'username': email,
+#                         'first_name': client.contact_person_first_name or '',
+#                         'last_name': client.contact_person_last_name or '',
+#                         'role': User.UserRole.COMPANY_ADMIN,
+#                         'client': client,
+#                         'is_active': True
+#                     }
+#                 )
                 
-                if not created:
-                    # Update existing user
-                    user.client = client
-                    user.role = User.UserRole.COMPANY_ADMIN
-                    user.is_active = True
-                    user.save()
+#                 if not created:
+#                     # Update existing user
+#                     user.client = client
+#                     user.role = User.UserRole.COMPANY_ADMIN
+#                     user.is_active = True
+#                     user.save()
                 
-                # Create default stakeholder group if it doesn't exist
-                stakeholder_group, _ = StakeholderGroup.objects.get_or_create(
-                    client=client,
-                    name='Management',
-                    defaults={
-                        'description': 'Default management stakeholder group',
-                        'created_by': user,
-                        'is_active': True
-                    }
-                )
+#                 # Create default stakeholder group if it doesn't exist
+#                 stakeholder_group, _ = StakeholderGroup.objects.get_or_create(
+#                     client=client,
+#                     name='Management',
+#                     defaults={
+#                         'description': 'Default management stakeholder group',
+#                         'created_by': user,
+#                         'is_active': True
+#                     }
+#                 )
                 
-                # Generate JWT tokens
-                refresh = RefreshToken.for_user(user)
+#                 # Generate JWT tokens
+#                 refresh = RefreshToken.for_user(user)
                 
-                return Response({
-                    "message": "Login successful",
-                    "user": UserProfileSerializer(user).data,
-                    "access_token": str(refresh.access_token),
-                    "refresh_token": str(refresh),
-                    "redirect_url": "/dashboard/"
-                }, status=status.HTTP_200_OK)
+#                 return Response({
+#                     "message": "Login successful",
+#                     "user": UserProfileSerializer(user).data,
+#                     "access_token": str(refresh.access_token),
+#                     "refresh_token": str(refresh),
+#                     "redirect_url": "/dashboard/"
+#                 }, status=status.HTTP_200_OK)
             
-            return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+#             return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
             
-        except Client.DoesNotExist:
-            return Response(
-                {"error": "Invalid or expired invitation token"},
-                status=status.HTTP_404_NOT_FOUND
-            )
+#         except Client.DoesNotExist:
+#             return Response(
+#                 {"error": "Invalid or expired invitation token"},
+#                 status=status.HTTP_404_NOT_FOUND
+#             )
 
 
-class GenerateLoginLinkView(APIView):
-    """
-    Generate new login link for returning Client Admin
-    """
-    permission_classes = [permissions.AllowAny]
+# class GenerateLoginLinkView(APIView):
+#     """
+#     Generate new login link for returning Client Admin
+#     """
+#     permission_classes = [permissions.AllowAny]
     
-    def post(self, request):
-        serializer = GenerateLoginLinkSerializer(data=request.data)
-        if serializer.is_valid():
-            email = serializer.validated_data['email']
+#     def post(self, request):
+#         serializer = GenerateLoginLinkSerializer(data=request.data)
+#         if serializer.is_valid():
+#             email = serializer.validated_data['email']
             
-            try:
-                # Find user and client
-                user = User.objects.get(email=email, role=User.UserRole.COMPANY_ADMIN)
-                client = user.client
+#             try:
+#                 # Find user and client
+#                 user = User.objects.get(email=email, role=User.UserRole.COMPANY_ADMIN)
+#                 client = user.client
                 
-                # Generate new login token
-                login_token = str(uuid.uuid4())
-                expires_at = timezone.now() + timedelta(hours=24)
+#                 # Generate new login token
+#                 login_token = str(uuid.uuid4())
+#                 expires_at = timezone.now() + timedelta(hours=24)
                 
-                # Update client with new token
-                client.login_token = login_token
-                client.login_expires_at = expires_at
-                client.save()
+#                 # Update client with new token
+#                 client.login_token = login_token
+#                 client.login_expires_at = expires_at
+#                 client.save()
                 
-                # Generate login link
-                login_link = f"{settings.DOMAIN}/auth/client-login/{login_token}/"
+#                 # Generate login link
+#                 login_link = f"{settings.DOMAIN}/auth/client-login/{login_token}/"
                 
-                # Send login email
-                self._send_login_email(user, login_link)
+#                 # Send login email
+#                 self._send_login_email(user, login_link)
                 
-                return Response({
-                    "message": "Login link sent to your email",
-                    "expires_at": expires_at
-                }, status=status.HTTP_200_OK)
+#                 return Response({
+#                     "message": "Login link sent to your email",
+#                     "expires_at": expires_at
+#                 }, status=status.HTTP_200_OK)
                 
-            except User.DoesNotExist:
-                return Response(
-                    {"error": "No account found with this email"},
-                    status=status.HTTP_404_NOT_FOUND
-                )
+#             except User.DoesNotExist:
+#                 return Response(
+#                     {"error": "No account found with this email"},
+#                     status=status.HTTP_404_NOT_FOUND
+#                 )
         
-        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+#         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
     
-    def _send_login_email(self, user, login_link):
-        """Send login link email"""
-        try:
-            subject = f"Login to Terramo Survey Platform - {user.client.company_name}"
-            html_message = render_to_string('emails/login_link.html', {
-                'user': user,
-                'login_link': login_link,
-                'expires_at': user.client.login_expires_at
-            })
+#     def _send_login_email(self, user, login_link):
+#         """Send login link email"""
+#         try:
+#             subject = f"Login to Terramo Survey Platform - {user.client.company_name}"
+#             html_message = render_to_string('emails/login_link.html', {
+#                 'user': user,
+#                 'login_link': login_link,
+#                 'expires_at': user.client.login_expires_at
+#             })
             
-            send_mail(
-                subject=subject,
-                message=f"Click this link to access your dashboard: {login_link}",
-                from_email=settings.DEFAULT_FROM_EMAIL,
-                recipient_list=[user.email],
-                html_message=html_message,
-                fail_silently=False,
-            )
-            logger.info(f"Login link sent to {user.email}")
-        except Exception as e:
-            logger.error(f"Failed to send login email: {str(e)}")
+#             send_mail(
+#                 subject=subject,
+#                 message=f"Click this link to access your dashboard: {login_link}",
+#                 from_email=settings.DEFAULT_FROM_EMAIL,
+#                 recipient_list=[user.email],
+#                 html_message=html_message,
+#                 fail_silently=False,
+#             )
+#             logger.info(f"Login link sent to {user.email}")
+#         except Exception as e:
+#             logger.error(f"Failed to send login email: {str(e)}")
 
 
-class StakeholderInvitationView(APIView):
-    """
-    Send invitation to stakeholders
-    Only accessible by Client Admin
-    """
-    permission_classes = [permissions.IsAuthenticated]
+# class StakeholderInvitationView(APIView):
+#     """
+#     Send invitation to stakeholders
+#     Only accessible by Client Admin
+#     """
+#     permission_classes = [permissions.IsAuthenticated]
     
-    def post(self, request):
-        if request.user.role != User.UserRole.COMPANY_ADMIN:
-            return Response(
-                {"error": "Only Client Admin can send stakeholder invitations"},
-                status=status.HTTP_403_FORBIDDEN
-            )
+#     def post(self, request):
+#         if request.user.role != User.UserRole.COMPANY_ADMIN:
+#             return Response(
+#                 {"error": "Only Client Admin can send stakeholder invitations"},
+#                 status=status.HTTP_403_FORBIDDEN
+#             )
         
-        serializer = StakeholderInvitationSerializer(data=request.data)
-        if serializer.is_valid():
-            try:
-                with transaction.atomic():
-                    stakeholder_group_id = serializer.validated_data['stakeholder_group_id']
-                    emails = serializer.validated_data['emails']
+#         serializer = StakeholderInvitationSerializer(data=request.data)
+#         if serializer.is_valid():
+#             try:
+#                 with transaction.atomic():
+#                     stakeholder_group_id = serializer.validated_data['stakeholder_group_id']
+#                     emails = serializer.validated_data['emails']
                     
-                    # Get stakeholder group
-                    stakeholder_group = get_object_or_404(
-                        StakeholderGroup,
-                        id=stakeholder_group_id,
-                        client=request.user.client
-                    )
+#                     # Get stakeholder group
+#                     stakeholder_group = get_object_or_404(
+#                         StakeholderGroup,
+#                         id=stakeholder_group_id,
+#                         client=request.user.client
+#                     )
                     
-                    invitations_created = []
+#                     invitations_created = []
                     
-                    for email in emails:
-                        # Create or update invitation
-                        invitation, created = StakeholderInvitation.objects.get_or_create(
-                            stakeholder_group=stakeholder_group,
-                            email=email,
-                            defaults={
-                                'invite_token': uuid.uuid4(),
-                                'expires_at': timezone.now() + timedelta(days=7),
-                                'sent_by': request.user,
-                                'status': StakeholderInvitation.Status.PENDING
-                            }
-                        )
+#                     for email in emails:
+#                         # Create or update invitation
+#                         invitation, created = StakeholderInvitation.objects.get_or_create(
+#                             stakeholder_group=stakeholder_group,
+#                             email=email,
+#                             defaults={
+#                                 'invite_token': uuid.uuid4(),
+#                                 'expires_at': timezone.now() + timedelta(days=7),
+#                                 'sent_by': request.user,
+#                                 'status': StakeholderInvitation.Status.PENDING
+#                             }
+#                         )
                         
-                        if not created:
-                            # Update existing invitation
-                            invitation.invite_token = uuid.uuid4()
-                            invitation.expires_at = timezone.now() + timedelta(days=7)
-                            invitation.status = StakeholderInvitation.Status.PENDING
-                            invitation.sent_by = request.user
-                            invitation.save()
+#                         if not created:
+#                             # Update existing invitation
+#                             invitation.invite_token = uuid.uuid4()
+#                             invitation.expires_at = timezone.now() + timedelta(days=7)
+#                             invitation.status = StakeholderInvitation.Status.PENDING
+#                             invitation.sent_by = request.user
+#                             invitation.save()
                         
-                        # Send invitation email
-                        self._send_stakeholder_invitation_email(invitation, stakeholder_group)
-                        invitations_created.append(invitation)
+#                         # Send invitation email
+#                         self._send_stakeholder_invitation_email(invitation, stakeholder_group)
+#                         invitations_created.append(invitation)
                     
-                    return Response({
-                        "message": f"Invitations sent successfully to {len(invitations_created)} stakeholders",
-                        "invitations": [
-                            {
-                                "email": inv.email,
-                                "invite_token": inv.invite_token,
-                                "expires_at": inv.expires_at
-                            }
-                            for inv in invitations_created
-                        ]
-                    }, status=status.HTTP_201_CREATED)
+#                     return Response({
+#                         "message": f"Invitations sent successfully to {len(invitations_created)} stakeholders",
+#                         "invitations": [
+#                             {
+#                                 "email": inv.email,
+#                                 "invite_token": inv.invite_token,
+#                                 "expires_at": inv.expires_at
+#                             }
+#                             for inv in invitations_created
+#                         ]
+#                     }, status=status.HTTP_201_CREATED)
                     
-            except Exception as e:
-                logger.error(f"Error sending stakeholder invitations: {str(e)}")
-                return Response(
-                    {"error": "Failed to send invitations"},
-                    status=status.HTTP_500_INTERNAL_SERVER_ERROR
-                )
+#             except Exception as e:
+#                 logger.error(f"Error sending stakeholder invitations: {str(e)}")
+#                 return Response(
+#                     {"error": "Failed to send invitations"},
+#                     status=status.HTTP_500_INTERNAL_SERVER_ERROR
+#                 )
         
-        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+#         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
     
-    def _send_stakeholder_invitation_email(self, invitation, stakeholder_group):
-        """Send invitation email to stakeholder"""
-        try:
-            invitation_link = f"{settings.DOMAIN}/auth/stakeholder-login/{invitation.invite_token}/"
+#     def _send_stakeholder_invitation_email(self, invitation, stakeholder_group):
+#         """Send invitation email to stakeholder"""
+#         try:
+#             invitation_link = f"{settings.DOMAIN}/auth/stakeholder-login/{invitation.invite_token}/"
             
-            subject = f"Invitation to participate in {stakeholder_group.client.company_name} Survey"
-            html_message = render_to_string('emails/stakeholder_invitation.html', {
-                'invitation': invitation,
-                'stakeholder_group': stakeholder_group,
-                'invitation_link': invitation_link,
-            })
+#             subject = f"Invitation to participate in {stakeholder_group.client.company_name} Survey"
+#             html_message = render_to_string('emails/stakeholder_invitation.html', {
+#                 'invitation': invitation,
+#                 'stakeholder_group': stakeholder_group,
+#                 'invitation_link': invitation_link,
+#             })
             
-            send_mail(
-                subject=subject,
-                message=f"Click this link to participate in the survey: {invitation_link}",
-                from_email=settings.DEFAULT_FROM_EMAIL,
-                recipient_list=[invitation.email],
-                html_message=html_message,
-                fail_silently=False,
-            )
-            logger.info(f"Stakeholder invitation sent to {invitation.email}")
-        except Exception as e:
-            logger.error(f"Failed to send stakeholder invitation: {str(e)}")
+#             send_mail(
+#                 subject=subject,
+#                 message=f"Click this link to participate in the survey: {invitation_link}",
+#                 from_email=settings.DEFAULT_FROM_EMAIL,
+#                 recipient_list=[invitation.email],
+#                 html_message=html_message,
+#                 fail_silently=False,
+#             )
+#             logger.info(f"Stakeholder invitation sent to {invitation.email}")
+#         except Exception as e:
+#             logger.error(f"Failed to send stakeholder invitation: {str(e)}")
 
 
-class StakeholderLoginView(APIView):
-    """
-    Handle Stakeholder login/registration
-    """
-    permission_classes = [permissions.AllowAny]
+# class StakeholderLoginView(APIView):
+#     """
+#     Handle Stakeholder login/registration
+#     """
+#     permission_classes = [permissions.AllowAny]
     
-    def get(self, request, invite_token):
-        """Validate invitation token"""
-        try:
-            invitation = get_object_or_404(
-                StakeholderInvitation,
-                invite_token=invite_token,
-                expires_at__gt=timezone.now(),
-                status=StakeholderInvitation.Status.PENDING
-            )
+#     def get(self, request, invite_token):
+#         """Validate invitation token"""
+#         try:
+#             invitation = get_object_or_404(
+#                 StakeholderInvitation,
+#                 invite_token=invite_token,
+#                 expires_at__gt=timezone.now(),
+#                 status=StakeholderInvitation.Status.PENDING
+#             )
             
-            # Check if user already exists
-            user_exists = User.objects.filter(
-                email=invitation.email,
-                role=User.UserRole.STAKEHOLDER
-            ).exists()
+#             # Check if user already exists
+#             user_exists = User.objects.filter(
+#                 email=invitation.email,
+#                 role=User.UserRole.STAKEHOLDER
+#             ).exists()
             
-            return Response({
-                "message": "Valid invitation token",
-                "email": invitation.email,
-                "stakeholder_group": invitation.stakeholder_group.name,
-                "company_name": invitation.stakeholder_group.client.company_name,
-                "user_exists": user_exists
-            }, status=status.HTTP_200_OK)
+#             return Response({
+#                 "message": "Valid invitation token",
+#                 "email": invitation.email,
+#                 "stakeholder_group": invitation.stakeholder_group.name,
+#                 "company_name": invitation.stakeholder_group.client.company_name,
+#                 "user_exists": user_exists
+#             }, status=status.HTTP_200_OK)
             
-        except StakeholderInvitation.DoesNotExist:
-            return Response(
-                {"error": "Invalid or expired invitation token"},
-                status=status.HTTP_404_NOT_FOUND
-            )
+#         except StakeholderInvitation.DoesNotExist:
+#             return Response(
+#                 {"error": "Invalid or expired invitation token"},
+#                 status=status.HTTP_404_NOT_FOUND
+#             )
     
-    def post(self, request, invite_token):
-        """Process Stakeholder login or registration"""
-        try:
-            invitation = get_object_or_404(
-                StakeholderInvitation,
-                invite_token=invite_token,
-                expires_at__gt=timezone.now(),
-                status=StakeholderInvitation.Status.PENDING
-            )
+#     def post(self, request, invite_token):
+#         """Process Stakeholder login or registration"""
+#         try:
+#             invitation = get_object_or_404(
+#                 StakeholderInvitation,
+#                 invite_token=invite_token,
+#                 expires_at__gt=timezone.now(),
+#                 status=StakeholderInvitation.Status.PENDING
+#             )
             
-            # Check if it's login or registration
-            user_exists = User.objects.filter(
-                email=invitation.email,
-                role=User.UserRole.STAKEHOLDER
-            ).exists()
+#             # Check if it's login or registration
+#             user_exists = User.objects.filter(
+#                 email=invitation.email,
+#                 role=User.UserRole.STAKEHOLDER
+#             ).exists()
             
-            if user_exists:
-                # Existing user login
-                serializer = StakeholderLoginSerializer(data=request.data)
-                if serializer.is_valid():
-                    email = serializer.validated_data['email']
+#             if user_exists:
+#                 # Existing user login
+#                 serializer = StakeholderLoginSerializer(data=request.data)
+#                 if serializer.is_valid():
+#                     email = serializer.validated_data['email']
                     
-                    if email != invitation.email:
-                        return Response(
-                            {"error": "Email does not match invitation"},
-                            status=status.HTTP_400_BAD_REQUEST
-                        )
+#                     if email != invitation.email:
+#                         return Response(
+#                             {"error": "Email does not match invitation"},
+#                             status=status.HTTP_400_BAD_REQUEST
+#                         )
                     
-                    user = User.objects.get(email=email, role=User.UserRole.STAKEHOLDER)
+#                     user = User.objects.get(email=email, role=User.UserRole.STAKEHOLDER)
                     
-                    # Update invitation status
-                    invitation.status = StakeholderInvitation.Status.ACCEPTED
-                    invitation.accepted_at = timezone.now()
-                    invitation.save()
+#                     # Update invitation status
+#                     invitation.status = StakeholderInvitation.Status.ACCEPTED
+#                     invitation.accepted_at = timezone.now()
+#                     invitation.save()
                     
-                    # Generate tokens
-                    refresh = RefreshToken.for_user(user)
+#                     # Generate tokens
+#                     refresh = RefreshToken.for_user(user)
                     
-                    return Response({
-                        "message": "Login successful",
-                        "user": UserProfileSerializer(user).data,
-                        "access_token": str(refresh.access_token),
-                        "refresh_token": str(refresh),
-                        "redirect_url": "/survey/"
-                    }, status=status.HTTP_200_OK)
+#                     return Response({
+#                         "message": "Login successful",
+#                         "user": UserProfileSerializer(user).data,
+#                         "access_token": str(refresh.access_token),
+#                         "refresh_token": str(refresh),
+#                         "redirect_url": "/survey/"
+#                     }, status=status.HTTP_200_OK)
                 
-                return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+#                 return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
             
-            else:
-                # New user registration
-                serializer = StakeholderRegistrationSerializer(data=request.data)
-                if serializer.is_valid():
-                    email = serializer.validated_data['email']
+#             else:
+#                 # New user registration
+#                 serializer = StakeholderRegistrationSerializer(data=request.data)
+#                 if serializer.is_valid():
+#                     email = serializer.validated_data['email']
                     
-                    if email != invitation.email:
-                        return Response(
-                            {"error": "Email does not match invitation"},
-                            status=status.HTTP_400_BAD_REQUEST
-                        )
+#                     if email != invitation.email:
+#                         return Response(
+#                             {"error": "Email does not match invitation"},
+#                             status=status.HTTP_400_BAD_REQUEST
+#                         )
                     
-                    # Create new stakeholder user
-                    user = User.objects.create_user(
-                        email=email,
-                        username=email,
-                        first_name=serializer.validated_data['first_name'],
-                        last_name=serializer.validated_data['last_name'],
-                        role=User.UserRole.STAKEHOLDER,
-                        client=invitation.stakeholder_group.client,
-                        is_active=True
-                    )
+#                     # Create new stakeholder user
+#                     user = User.objects.create_user(
+#                         email=email,
+#                         username=email,
+#                         first_name=serializer.validated_data['first_name'],
+#                         last_name=serializer.validated_data['last_name'],
+#                         role=User.UserRole.STAKEHOLDER,
+#                         client=invitation.stakeholder_group.client,
+#                         is_active=True
+#                     )
                     
-                    # Update invitation status
-                    invitation.status = StakeholderInvitation.Status.ACCEPTED
-                    invitation.accepted_at = timezone.now()
-                    invitation.save()
+#                     # Update invitation status
+#                     invitation.status = StakeholderInvitation.Status.ACCEPTED
+#                     invitation.accepted_at = timezone.now()
+#                     invitation.save()
                     
-                    # Generate tokens
-                    refresh = RefreshToken.for_user(user)
+#                     # Generate tokens
+#                     refresh = RefreshToken.for_user(user)
                     
-                    return Response({
-                        "message": "Registration successful",
-                        "user": UserProfileSerializer(user).data,
-                        "access_token": str(refresh.access_token),
-                        "refresh_token": str(refresh),
-                        "redirect_url": "/survey/"
-                    }, status=status.HTTP_201_CREATED)
+#                     return Response({
+#                         "message": "Registration successful",
+#                         "user": UserProfileSerializer(user).data,
+#                         "access_token": str(refresh.access_token),
+#                         "refresh_token": str(refresh),
+#                         "redirect_url": "/survey/"
+#                     }, status=status.HTTP_201_CREATED)
                 
-                return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+#                 return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
                 
-        except StakeholderInvitation.DoesNotExist:
-            return Response(
-                {"error": "Invalid or expired invitation token"},
-                status=status.HTTP_404_NOT_FOUND
-            )
+#         except StakeholderInvitation.DoesNotExist:
+#             return Response(
+#                 {"error": "Invalid or expired invitation token"},
+#                 status=status.HTTP_404_NOT_FOUND
+#             )
 
 
 class UserProfileView(generics.RetrieveUpdateAPIView):
@@ -1215,58 +1215,58 @@ class UserProfileView(generics.RetrieveUpdateAPIView):
 #             )
 
 
-@api_view(['GET'])
-@permission_classes([permissions.IsAuthenticated])
-def dashboard_view(request):
-    """
-    Dashboard endpoint that returns user-specific data
-    """
-    user = request.user
+# @api_view(['GET'])
+# @permission_classes([permissions.IsAuthenticated])
+# def dashboard_view(request):
+#     """
+#     Dashboard endpoint that returns user-specific data
+#     """
+#     user = request.user
     
-    if user.role == User.UserRole.COMPANY_ADMIN:
-        # Client Admin dashboard data
-        stakeholder_groups = StakeholderGroup.objects.filter(
-            client=user.client,
-            is_active=True
-        )
+#     if user.role == User.UserRole.COMPANY_ADMIN:
+#         # Client Admin dashboard data
+#         stakeholder_groups = StakeholderGroup.objects.filter(
+#             client=user.client,
+#             is_active=True
+#         )
         
-        return Response({
-            "user": UserProfileSerializer(user).data,
-            "dashboard_type": "client_admin",
-            "client": {
-                "id": user.client.id,
-                "company_name": user.client.company_name,
-            },
-            "stakeholder_groups": [
-                {
-                    "id": group.id,
-                    "name": group.name,
-                    "description": group.description,
-                    "members_count": group.invitations.filter(
-                        status=StakeholderInvitation.Status.ACCEPTED
-                    ).count()
-                }
-                for group in stakeholder_groups
-            ]
-        })
+#         return Response({
+#             "user": UserProfileSerializer(user).data,
+#             "dashboard_type": "client_admin",
+#             "client": {
+#                 "id": user.client.id,
+#                 "company_name": user.client.company_name,
+#             },
+#             "stakeholder_groups": [
+#                 {
+#                     "id": group.id,
+#                     "name": group.name,
+#                     "description": group.description,
+#                     "members_count": group.invitations.filter(
+#                         status=StakeholderInvitation.Status.ACCEPTED
+#                     ).count()
+#                 }
+#                 for group in stakeholder_groups
+#             ]
+#         })
     
-    elif user.role == User.UserRole.STAKEHOLDER:
-        # Stakeholder dashboard data
-        return Response({
-            "user": UserProfileSerializer(user).data,
-            "dashboard_type": "stakeholder",
-            "client": {
-                "id": user.client.id,
-                "company_name": user.client.company_name,
-            },
-            "available_surveys": []  # Add survey logic here
-        })
+#     elif user.role == User.UserRole.STAKEHOLDER:
+#         # Stakeholder dashboard data
+#         return Response({
+#             "user": UserProfileSerializer(user).data,
+#             "dashboard_type": "stakeholder",
+#             "client": {
+#                 "id": user.client.id,
+#                 "company_name": user.client.company_name,
+#             },
+#             "available_surveys": []  # Add survey logic here
+#         })
     
-    else:
-        return Response(
-            {"error": "Unauthorized access"},
-            status=status.HTTP_403_FORBIDDEN
-        )
+#     else:
+#         return Response(
+#             {"error": "Unauthorized access"},
+#             status=status.HTTP_403_FORBIDDEN
+#         )
 
 
 # class StakeholderGroupViewSet(viewsets.ModelViewSet):
@@ -1460,88 +1460,88 @@ def dashboard_view(request):
 #         return Response(serializer.data)
 
 
-class BulkStakeholderInvitationView(APIView):
-    """
-    Handle bulk stakeholder invitations via CSV upload
-    """
-    permission_classes = [permissions.IsAuthenticated]
+# class BulkStakeholderInvitationView(APIView):
+#     """
+#     Handle bulk stakeholder invitations via CSV upload
+#     """
+#     permission_classes = [permissions.IsAuthenticated]
     
-    def post(self, request):
-        if request.user.role != User.UserRole.COMPANY_ADMIN:
-            return Response(
-                {"error": "Only Client Admin can send bulk invitations"},
-                status=status.HTTP_403_FORBIDDEN
-            )
+#     def post(self, request):
+#         if request.user.role != User.UserRole.COMPANY_ADMIN:
+#             return Response(
+#                 {"error": "Only Client Admin can send bulk invitations"},
+#                 status=status.HTTP_403_FORBIDDEN
+#             )
         
-        serializer = BulkStakeholderInvitationSerializer(data=request.data)
-        if serializer.is_valid():
-            try:
-                stakeholder_group_id = serializer.validated_data['stakeholder_group_id']
-                csv_file = serializer.validated_data['csv_file']
+#         serializer = BulkStakeholderInvitationSerializer(data=request.data)
+#         if serializer.is_valid():
+#             try:
+#                 stakeholder_group_id = serializer.validated_data['stakeholder_group_id']
+#                 csv_file = serializer.validated_data['csv_file']
                 
-                # Get stakeholder group
-                stakeholder_group = get_object_or_404(
-                    StakeholderGroup,
-                    id=stakeholder_group_id,
-                    client=request.user.client
-                )
+#                 # Get stakeholder group
+#                 stakeholder_group = get_object_or_404(
+#                     StakeholderGroup,
+#                     id=stakeholder_group_id,
+#                     client=request.user.client
+#                 )
                 
-                # Process CSV file
-                emails = self._process_csv_file(csv_file)
+#                 # Process CSV file
+#                 emails = self._process_csv_file(csv_file)
                 
-                if not emails:
-                    return Response(
-                        {"error": "No valid emails found in CSV file"},
-                        status=status.HTTP_400_BAD_REQUEST
-                    )
+#                 if not emails:
+#                     return Response(
+#                         {"error": "No valid emails found in CSV file"},
+#                         status=status.HTTP_400_BAD_REQUEST
+#                     )
                 
-                # Create invitations
-                invitations_created = []
-                errors = []
+#                 # Create invitations
+#                 invitations_created = []
+#                 errors = []
                 
-                with transaction.atomic():
-                    for email in emails:
-                        try:
-                            invitation, created = StakeholderInvitation.objects.get_or_create(
-                                stakeholder_group=stakeholder_group,
-                                email=email,
-                                defaults={
-                                    'invite_token': uuid.uuid4(),
-                                    'expires_at': timezone.now() + timedelta(days=7),
-                                    'sent_by': request.user,
-                                    'status': StakeholderInvitation.Status.PENDING
-                                }
-                            )
+#                 with transaction.atomic():
+#                     for email in emails:
+#                         try:
+#                             invitation, created = StakeholderInvitation.objects.get_or_create(
+#                                 stakeholder_group=stakeholder_group,
+#                                 email=email,
+#                                 defaults={
+#                                     'invite_token': uuid.uuid4(),
+#                                     'expires_at': timezone.now() + timedelta(days=7),
+#                                     'sent_by': request.user,
+#                                     'status': StakeholderInvitation.Status.PENDING
+#                                 }
+#                             )
                             
-                            if not created:
-                                # Update existing invitation
-                                invitation.invite_token = uuid.uuid4()
-                                invitation.expires_at = timezone.now() + timedelta(days=7)
-                                invitation.status = StakeholderInvitation.Status.PENDING
-                                invitation.sent_by = request.user
-                                invitation.save()
+#                             if not created:
+#                                 # Update existing invitation
+#                                 invitation.invite_token = uuid.uuid4()
+#                                 invitation.expires_at = timezone.now() + timedelta(days=7)
+#                                 invitation.status = StakeholderInvitation.Status.PENDING
+#                                 invitation.sent_by = request.user
+#                                 invitation.save()
                             
-                            # Send invitation email
-                            self._send_stakeholder_invitation_email(invitation, stakeholder_group)
-                            invitations_created.append(invitation)
+#                             # Send invitation email
+#                             self._send_stakeholder_invitation_email(invitation, stakeholder_group)
+#                             invitations_created.append(invitation)
                             
-                        except Exception as e:
-                            errors.append(f"Error processing {email}: {str(e)}")
-                            logger.error(f"Error processing bulk invitation for {email}: {str(e)}")
+#                         except Exception as e:
+#                             errors.append(f"Error processing {email}: {str(e)}")
+#                             logger.error(f"Error processing bulk invitation for {email}: {str(e)}")
                 
-                return Response({
-                    "message": f"Bulk invitations processed",
-                    "successful_invitations": len(invitations_created),
-                    "errors": errors,
-                    "total_processed": len(emails)
-                }, status=status.HTTP_201_CREATED)
+#                 return Response({
+#                     "message": f"Bulk invitations processed",
+#                     "successful_invitations": len(invitations_created),
+#                     "errors": errors,
+#                     "total_processed": len(emails)
+#                 }, status=status.HTTP_201_CREATED)
                 
-            except Exception as e:
-                logger.error(f"Error processing bulk invitations: {str(e)}")
-                return Response(
-                    {"error": "Failed to process bulk invitations"},
-                    status=status.HTTP_500_INTERNAL_SERVER_ERROR
-                )
+#             except Exception as e:
+#                 logger.error(f"Error processing bulk invitations: {str(e)}")
+#                 return Response(
+#                     {"error": "Failed to process bulk invitations"},
+#                     status=status.HTTP_500_INTERNAL_SERVER_ERROR
+#                 )
         
 #         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
     

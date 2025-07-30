@@ -10,25 +10,24 @@ class Migration(migrations.Migration):
     initial = True
 
     dependencies = [
+        ("authentication", "0001_initial"),
         migrations.swappable_dependency(settings.AUTH_USER_MODEL),
-        ("common", "0001_initial"),
     ]
 
     operations = [
         migrations.AddField(
-            model_name="contentview",
-            name="user",
+            model_name="client",
+            name="created_by",
             field=models.ForeignKey(
-                blank=True,
-                null=True,
-                on_delete=django.db.models.deletion.SET_NULL,
-                related_name="content_views",
-                to=settings.AUTH_USER_MODEL,
-                verbose_name="User",
+                on_delete=django.db.models.deletion.CASCADE, to=settings.AUTH_USER_MODEL
             ),
         ),
         migrations.AlterUniqueTogether(
-            name="contentview",
-            unique_together={("content_type", "object_id", "user", "viewer_ip")},
+            name="stakeholdergroup",
+            unique_together={("name", "client")},
+        ),
+        migrations.AlterUniqueTogether(
+            name="stakeholder",
+            unique_together={("email", "group")},
         ),
     ]
