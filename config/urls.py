@@ -3,7 +3,9 @@ from django.conf import settings
 from django.contrib import admin
 from django.urls import path, include
 from django.conf import settings
-from core_apps.clients import views
+
+from django.conf.urls.static import static
+# from core_apps.clients import views
 from drf_spectacular.views import (
     SpectacularAPIView,
     SpectacularRedocView,
@@ -31,7 +33,7 @@ urlpatterns = [
     path("api/v1/auth/", include("core_apps.user_auth.urls")),
     path(f"api/v1/clients/", include("core_apps.clients.urls")),
     path(f"api/v1/products/", include("core_apps.products.urls")),
-    
+    path(f"api/v1/authentication/", include("core_apps.authentication.urls")),
     # path(f"api/v1/clients/", include("core_apps.clients.urls")),
     # path('clients/create/', views.ClientCreateView.as_view(), name='client_create'),
     # path("api/v1/stakeholders/", include("core_apps.companydata.urls")),
@@ -41,3 +43,6 @@ urlpatterns = [
 admin.site.site_header = "Terramo Tool Admin"
 admin.site.site_title = "Terramo Tool Admin Portal"
 admin.site.index_title = "Welcome to Terramo Tool Admin Portal"
+
+if settings.DEBUG:
+    urlpatterns += static(settings.MEDIA_URL, document_root=settings.MEDIA_ROOT)

@@ -4,6 +4,7 @@ from os import getenv, path
 from loguru import logger
 from datetime import timedelta, date
 import cloudinary
+import os
 
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
 BASE_DIR = Path(__file__).resolve(strict=True).parent.parent.parent
@@ -16,6 +17,7 @@ if path.isfile(local_env_file):
     load_dotenv(local_env_file)
 
 DOMAIN = getenv("DOMAIN")
+FRONTEND_DOMAIN_URL = getenv("FRONTEND_DOMAIN_URL")
 API_VERSION = getenv("API_VERSION")
 # Application definition
 
@@ -49,9 +51,10 @@ LOCAL_APPS = [
     "core_apps.user_auth",
     "core_apps.common",
     "core_apps.products",
+    "core_apps.authentication",
     "core_apps.clients",
-    "core_apps.esg",
-    "core_apps.stakeholder_analysis",
+    # "core_apps.esg",
+    # "core_apps.stakeholder_analysis",
     # "core_apps.materiality_analysis",
     # "core_apps.user_profile",
     # "core_apps.company",
@@ -85,7 +88,8 @@ MIDDLEWARE = [
 
 CORS_ALLOWED_ORIGINS = [
     "http://localhost:3000",
-    "http://localhost:5173"
+    "http://localhost:5173",
+
 ]
 
 
@@ -168,7 +172,16 @@ SITE_ID = 1
 # https://docs.djangoproject.com/en/4.2/howto/static-files/
 
 STATIC_URL = "/static/"
-STATIC_ROOT = str(BASE_DIR / "staticfiles")
+# STATIC_ROOT = str(BASE_DIR / "staticfiles")
+STATIC_ROOT = os.path.join(BASE_DIR, 'staticfiles')
+STATICFILES_DIRS = [
+    os.path.join(BASE_DIR, 'static'),
+]
+
+
+FILE_UPLOAD_MAX_MEMORY_SIZE = 5 * 1024 * 1024  # 5MB
+DATA_UPLOAD_MAX_MEMORY_SIZE = 10 * 1024 * 1024  # 10MB
+
 
 # Default primary key field type
 # https://docs.djangoproject.com/en/4.2/ref/settings/#default-auto-field

@@ -39,7 +39,7 @@ import uuid
 import secrets
 from datetime import timedelta
 from django.conf import settings
-
+from core_apps.clients.models import Client
 User = settings.AUTH_USER_MODEL
 # class User(AbstractUser):
 #     """Extended User model for Terramo Admin only"""
@@ -56,57 +56,57 @@ User = settings.AUTH_USER_MODEL
 #     def __str__(self):
 #         return self.email
 
-class Client(models.Model):
-    """Client company model"""
-    PRODUCT_CHOICES = [
-        ('esg_check', 'ESG-Check'),
-        ('stakeholder_analysis', 'Stakeholder Analysis'),
-        ('materiality_analysis', 'Materiality Analysis'),
-    ]
+# class Client(models.Model):
+#     """Client company model"""
+#     PRODUCT_CHOICES = [
+#         ('esg_check', 'ESG-Check'),
+#         ('stakeholder_analysis', 'Stakeholder Analysis'),
+#         ('materiality_analysis', 'Materiality Analysis'),
+#     ]
     
-    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
-    company_name = models.CharField(max_length=255)
-    company_contact_email = models.EmailField()
-    date_required = models.DateField()
+#     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+#     company_name = models.CharField(max_length=255)
+#     company_contact_email = models.EmailField()
+#     date_required = models.DateField()
     
-    # Product details - can select multiple
-    products = models.JSONField(default=list)  # Store selected products as list
+#     # Product details - can select multiple
+#     products = models.JSONField(default=list)  # Store selected products as list
     
-    # Contact person details
-    first_name = models.CharField(max_length=100)
-    last_name = models.CharField(max_length=100)
-    gender = models.CharField(
-        max_length=40,
-        choices=[
-            ('male', 'Male'),
-            ('female', 'Female'),
-            ('other', 'Other'),
-            ('prefer_not_to_say', 'Prefer not to say')
-        ],
-        blank=True
-    )
-    birth_year = models.IntegerField(null=True, blank=True)
+#     # Contact person details
+#     first_name = models.CharField(max_length=100)
+#     last_name = models.CharField(max_length=100)
+#     gender = models.CharField(
+#         max_length=40,
+#         choices=[
+#             ('male', 'Male'),
+#             ('female', 'Female'),
+#             ('other', 'Other'),
+#             ('prefer_not_to_say', 'Prefer not to say')
+#         ],
+#         blank=True
+#     )
+#     birth_year = models.IntegerField(null=True, blank=True)
     
-    # Address details
-    street = models.CharField(max_length=255)
-    postal_code = models.CharField(max_length=20)
-    city = models.CharField(max_length=100)
-    country = models.CharField(max_length=100)
+#     # Address details
+#     street = models.CharField(max_length=255)
+#     postal_code = models.CharField(max_length=20)
+#     city = models.CharField(max_length=100)
+#     country = models.CharField(max_length=100)
     
-    # Contact details
-    phone_number = models.CharField(max_length=20)
-    mobile_number = models.CharField(max_length=20, blank=True)
-    email = models.EmailField()
+#     # Contact details
+#     phone_number = models.CharField(max_length=20)
+#     mobile_number = models.CharField(max_length=20, blank=True)
+#     email = models.EmailField()
     
-    # Additional info
-    internal_processing_note = models.TextField(blank=True)
+#     # Additional info
+#     internal_processing_note = models.TextField(blank=True)
     
-    created_at = models.DateTimeField(auto_now_add=True)
-    updated_at = models.DateTimeField(auto_now=True)
-    created_by = models.ForeignKey(User, on_delete=models.CASCADE)
+#     created_at = models.DateTimeField(auto_now_add=True)
+#     updated_at = models.DateTimeField(auto_now=True)
+#     created_by = models.ForeignKey(User, on_delete=models.CASCADE)
     
-    def __str__(self):
-        return f"{self.company_name} - {self.first_name} {self.last_name}"
+#     def __str__(self):
+#         return f"{self.company_name} - {self.first_name} {self.last_name}"
 
 class ClientAdmin(models.Model):
     """Client Admin model - not in User table"""
@@ -130,13 +130,16 @@ class StakeholderGroup(models.Model):
     created_by = models.ForeignKey(ClientAdmin, on_delete=models.CASCADE)
     created_at = models.DateTimeField(auto_now_add=True)
     is_active = models.BooleanField(default=True)
-    
+    invitation_token = models.UUIDField(default=uuid.uuid4, unique=True, editable=False)
+
     class Meta:
         unique_together = ['name', 'client']
     
     def __str__(self):
         return f"{self.name} - {self.client.company_name}"
-
+    def get_invite_full_url(self):
+        return f"{settings.DOMAIN}/{self.invitation_token}/"
+    
 class Stakeholder(models.Model):
     """Stakeholder model - not in User table"""
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)

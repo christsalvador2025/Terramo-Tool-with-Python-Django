@@ -1,10 +1,10 @@
 from django.contrib import admin
 from django.contrib.auth.admin import UserAdmin as BaseUserAdmin
 from .models import (
-     Client, ClientAdmin, Stakeholder, 
+    ClientAdmin, Stakeholder, 
     StakeholderGroup, InvitationToken, LoginSession
 )
-
+from core_apps.clients.models import Client
 
 # @admin.register(User)
 # class UserAdmin(BaseUserAdmin):
@@ -13,12 +13,12 @@ from .models import (
 #     search_fields = ('email', 'username')
 #     ordering = ('email',)
 
-@admin.register(Client)
-class ClientModelAdmin(admin.ModelAdmin):
-    list_display = ('company_name', 'email', 'created_at', 'created_by')
-    list_filter = ('created_at', 'products')
-    search_fields = ('company_name', 'email', 'first_name', 'last_name')
-    readonly_fields = ('id', 'created_at', 'updated_at')
+# @admin.register(Client)
+# class ClientModelAdmin(admin.ModelAdmin):
+#     list_display = ('company_name', 'email', 'created_at', 'created_by')
+#     list_filter = ('created_at', 'products')
+#     search_fields = ('company_name', 'email', 'first_name', 'last_name')
+#     readonly_fields = ('id', 'created_at', 'updated_at')
 
 @admin.register(ClientAdmin)
 class ClientAdminModelAdmin(admin.ModelAdmin):
@@ -29,9 +29,22 @@ class ClientAdminModelAdmin(admin.ModelAdmin):
 
 @admin.register(StakeholderGroup)
 class StakeholderGroupAdmin(admin.ModelAdmin):
-    list_display = ('id','name', 'client', 'created_by', 'created_at', 'is_active')
+    list_display = ('id','name', 'client', 'created_by', 'invitation_token','invite_full_url','created_at', 'is_active')
     list_filter = ('is_active', 'created_at')
     search_fields = ('name', 'client__company_name')
+    fieldsets = (
+        
+        ('None', { 
+            'fields': ('id', 'name', 'is_active', 'client', 'created_by', 'invitation_token',  )
+        }),
+
+    )
+    readonly_fields=['invitation_token', 'id']
+
+    def invite_full_url(self, obj):
+        return f"{obj.get_invite_full_url()}"
+    invite_full_url.short_description = 'Invitation url' 
+    
 
 @admin.register(Stakeholder)
 class StakeholderAdmin(admin.ModelAdmin):

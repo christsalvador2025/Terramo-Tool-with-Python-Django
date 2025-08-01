@@ -10,13 +10,13 @@ from django.conf import settings
 from django.shortcuts import get_object_or_404
 from django.db import transaction
 import logging
-
+from core_apps.clients.models import Client
 from .models import (
-    User, Client, ClientAdmin, Stakeholder, 
+    ClientAdmin, Stakeholder, 
     StakeholderGroup, InvitationToken, LoginSession
 )
 from .serializers import (
-    ClientCreateSerializer, ClientAdminCreateSerializer,
+     ClientAdminCreateSerializer,
     StakeholderGroupSerializer, StakeholderCreateSerializer,
     StakeholderRegistrationSerializer, EmailLoginSerializer,
     InvitationTokenSerializer, ClientAdminDetailSerializer,
@@ -82,64 +82,64 @@ class TerramoAdminLoginView(APIView):
         
         return response
 
-class ClientCreateView(generics.CreateAPIView):
-    """Create client and client admin by Terramo Admin"""
-    serializer_class = ClientCreateSerializer
-    permission_classes = [IsTerramoAdmin]
+# class ClientCreateView(generics.CreateAPIView):
+#     """Create client and client admin by Terramo Admin"""
+#     serializer_class = ClientCreateSerializer
+#     permission_classes = [IsTerramoAdmin]
     
-    @transaction.atomic
-    def perform_create(self, serializer):
-        # Create client
-        client = serializer.save(created_by=self.request.user)
+#     @transaction.atomic
+#     def perform_create(self, serializer):
+#         # Create client
+#         client = serializer.save(created_by=self.request.user)
         
-        # Create client admin
-        client_admin = ClientAdmin.objects.create(
-            client=client,
-            email=client.email,
-            first_name=client.first_name,
-            last_name=client.last_name
-        )
+#         # Create client admin
+#         client_admin = ClientAdmin.objects.create(
+#             client=client,
+#             email=client.email,
+#             first_name=client.first_name,
+#             last_name=client.last_name
+#         )
         
-        # Create default "Management" stakeholder group
-        StakeholderGroup.objects.create(
-            name="Management",
-            client=client,
-            created_by=client_admin
-        )
+#         # Create default "Management" stakeholder group
+#         StakeholderGroup.objects.create(
+#             name="Management",
+#             client=client,
+#             created_by=client_admin
+#         )
         
-        # Generate invitation token for client admin
-        invitation_token = InvitationToken.objects.create(
-            token_type='client_admin_invite',
-            client_admin=client_admin,
-            email=client_admin.email
-        )
+#         # Generate invitation token for client admin
+#         invitation_token = InvitationToken.objects.create(
+#             token_type='client_admin_invite',
+#             client_admin=client_admin,
+#             email=client_admin.email
+#         )
         
-        # Send invitation email
-        self.send_invitation_email(client_admin, invitation_token)
+#         # Send invitation email
+#         self.send_invitation_email(client_admin, invitation_token)
         
-        return client
+#         return client
     
-    def send_invitation_email(self, client_admin, invitation_token):
-        """Send invitation email to client admin"""
-        subject = f"Invitation to Terramo System - {client_admin.client.company_name}"
-        invitation_link = f"{settings.DOMAIN}/api/v1/authentication/client-admin/accept-invitation/{invitation_token.token}"
+#     def send_invitation_email(self, client_admin, invitation_token):
+#         """Send invitation email to client admin"""
+#         subject = f"Invitation to Terramo System - {client_admin.client.company_name}"
+#         invitation_link = f"{settings.DOMAIN}/api/v1/authentication/client-admin/accept-invitation/{invitation_token.token}"
         
-        message = generate_invitation_email(
-            client_admin.first_name,
-            client_admin.client.company_name,
-            invitation_link
-        )
+#         message = generate_invitation_email(
+#             client_admin.first_name,
+#             client_admin.client.company_name,
+#             invitation_link
+#         )
         
-        try:
-            send_mail(
-                subject=subject,
-                message=message,
-                from_email=settings.DEFAULT_FROM_EMAIL,
-                recipient_list=[client_admin.email],
-                fail_silently=False,
-            )
-        except Exception as e:
-            logger.error(f"Failed to send invitation email to {client_admin.email}: {e}")
+#         try:
+#             send_mail(
+#                 subject=subject,
+#                 message=message,
+#                 from_email=settings.DEFAULT_FROM_EMAIL,
+#                 recipient_list=[client_admin.email],
+#                 fail_silently=False,
+#             )
+#         except Exception as e:
+#             logger.error(f"Failed to send invitation email to {client_admin.email}: {e}")
 
 class ClientAdminInvitationAcceptView(APIView):
     """Accept client admin invitation"""
@@ -408,6 +408,7 @@ class StakeholderGroupCreateView(generics.CreateAPIView):
 #             return session.client_admin
 #         except LoginSession.DoesNotExist:
 #             raise permissions.PermissionDenied("Invalid session")
+
 class StakeholderCreateView(generics.CreateAPIView):
     """Create stakeholder by Client Admin"""
     serializer_class = StakeholderCreateSerializer
@@ -440,7 +441,7 @@ class StakeholderCreateView(generics.CreateAPIView):
     @transaction.atomic
     def perform_create(self, serializer):
         group = self.get_serializer_context()['group']
-        stakeholder = serializer.save(group=group)
+        stakeholder = serializer.save(group=group, is_registered=True)
 
         # Generate invitation token
         invitation_token = InvitationToken.objects.create(
@@ -502,6 +503,41 @@ class StakeholderInvitationAcceptView(APIView):
                 status=status.HTTP_400_BAD_REQUEST
             )
 
+"""
+------- invitation token: 
+"""
+class StakeholderGroupInvitationAcceptView(APIView):
+    """Accept stakeholder invitation using invitation token"""
+    permission_classes = [permissions.AllowAny]
+    
+    def get(self, request, token):
+        """Validate invitation token"""
+        try:
+            stakeholder_invitation = get_object_or_404(
+                StakeholderGroup,
+                invitation_token=token
+            )
+            
+            
+            # get_invite_full_url
+            return Response({
+                'message': 'Stakeholder Group: Valid invitation token',
+                'group_name': stakeholder_invitation.name,
+                'group_id': stakeholder_invitation.id,
+                'invitation_token': stakeholder_invitation.invitation_token,
+                'company_info': {
+                    "id" : stakeholder_invitation.client.id,
+                    "name" : stakeholder_invitation.client.company_name
+                } ,
+            })
+            
+        except Exception as e:
+            logger.error(f"Error accepting stakeholder group invitation: {e}")
+            return Response(
+                {'error': 'Invalid Stakeholder Group invitation'}, 
+                status=status.HTTP_400_BAD_REQUEST
+            )
+
 class StakeholderLoginView(APIView):
     """Login view for Stakeholder (email only)"""
     permission_classes = [permissions.AllowAny]
@@ -519,6 +555,74 @@ class StakeholderLoginView(APIView):
         
         try:
             stakeholder = Stakeholder.objects.get(email=email)
+        except Stakeholder.DoesNotExist:
+            return Response(
+                {'error': 'Stakeholder not found. Please check your email or contact your administrator.'}, 
+                status=status.HTTP_404_NOT_FOUND
+            )
+        
+        if not stakeholder.is_registered:
+            return Response(
+                {'error': 'Please complete your registration first.'}, 
+                status=status.HTTP_400_BAD_REQUEST
+            )
+        
+        # Generate login token
+        login_token = InvitationToken.objects.create(
+            token_type='login_token',
+            stakeholder=stakeholder,
+            email=email
+        )
+        
+        # Send login email
+        self.send_login_email(stakeholder, login_token)
+        
+        return Response({
+            'message': 'Login email sent. Please check your email and click the login link.'
+        })
+    
+    def send_login_email(self, stakeholder, login_token):
+        """Send login email to stakeholder"""
+        subject = "Login to Terramo System"
+        login_link = f"{settings.DOMAIN}/api/v1/authentication/stakeholder/login/{login_token.token}"
+        
+        message = generate_login_email(
+            stakeholder.first_name or "Stakeholder",
+            login_link
+        )
+        
+        try:
+            send_mail(
+                subject=subject,
+                message=message,
+                from_email=settings.DEFAULT_FROM_EMAIL,
+                recipient_list=[stakeholder.email],
+                fail_silently=False,
+            )
+        except Exception as e:
+            logger.error(f"Failed to send login email to {stakeholder.email}: {e}")
+
+"""
+UPDATED CODE FOR STAKEHOLDER GROUPS: ------ after accept invites
+"""
+class StakeholderCheckEmailView(APIView):
+    """Login view for Stakeholder (email only)"""
+    permission_classes = [permissions.AllowAny]
+    
+    def post(self, request, token):
+        serializer = EmailLoginSerializer(data=request.data)
+        
+        if not serializer.is_valid():
+            return Response(
+                {'error': 'Invalid input', 'details': serializer.errors}, 
+                status=status.HTTP_400_BAD_REQUEST
+            )
+        
+        email = serializer.validated_data['email']
+        
+        try:
+            stakeholder = Stakeholder.objects.get(email=email)
+
         except Stakeholder.DoesNotExist:
             return Response(
                 {'error': 'Stakeholder not found. Please check your email or contact your administrator.'}, 

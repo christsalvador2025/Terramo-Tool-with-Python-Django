@@ -1,42 +1,43 @@
 from rest_framework import serializers
 from django.contrib.auth import authenticate
 from django.core.validators import EmailValidator
-from .models import (
-    Client, ClientAdmin, Stakeholder, 
+from .models import ( 
+    ClientAdmin, Stakeholder, 
     StakeholderGroup, InvitationToken, LoginSession
 )
+from core_apps.clients.models import Client
 from django.conf import settings
 User = settings.AUTH_USER_MODEL
-class ClientCreateSerializer(serializers.ModelSerializer):
-    """Serializer for creating clients by Terramo Admin"""
+# class ClientCreateSerializer(serializers.ModelSerializer):
+#     """Serializer for creating clients by Terramo Admin"""
     
-    products = serializers.MultipleChoiceField(choices=Client.PRODUCT_CHOICES)
+#     products = serializers.MultipleChoiceField(choices=Client.PRODUCT_CHOICES)
 
-    class Meta:
-        model = Client
-        fields = [
-            'company_name', 'company_contact_email', 'date_required', 'products',
-            'first_name', 'last_name', 'gender', 'birth_year',
-            'street', 'postal_code', 'city', 'country',
-            'phone_number', 'mobile_number', 'email',
-            'internal_processing_note'
-        ]
+#     class Meta:
+#         model = Client
+#         fields = [
+#             'company_name', 'company_contact_email', 'date_required', 'products',
+#             'first_name', 'last_name', 'gender', 'birth_year',
+#             'street', 'postal_code', 'city', 'country',
+#             'phone_number', 'mobile_number', 'email',
+#             'internal_processing_note'
+#         ]
 
-    def validate_products(self, value):
-        if not value:
-            raise serializers.ValidationError("At least one product must be selected.")
-        return list(value)  # ✅ Ensure it stays a list
+#     def validate_products(self, value):
+#         if not value:
+#             raise serializers.ValidationError("At least one product must be selected.")
+#         return list(value)  # ✅ Ensure it stays a list
 
-    def create(self, validated_data):
-        # ✅ Ensure 'products' is stored as a list (not a set)
-        validated_data['products'] = list(validated_data.get('products', []))
+#     def create(self, validated_data):
+#         # ✅ Ensure 'products' is stored as a list (not a set)
+#         validated_data['products'] = list(validated_data.get('products', []))
         
-        # Optional: if you're passing created_by manually
-        created_by = self.context['request'].user if 'request' in self.context else None
-        if created_by:
-            validated_data['created_by'] = created_by
+#         # Optional: if you're passing created_by manually
+#         created_by = self.context['request'].user if 'request' in self.context else None
+#         if created_by:
+#             validated_data['created_by'] = created_by
 
-        return Client.objects.create(**validated_data)
+#         return Client.objects.create(**validated_data)
 # class ClientCreateSerializer(serializers.ModelSerializer):
 #     """Serializer for creating clients by Terramo Admin"""
 #     products = serializers.MultipleChoiceField(choices=Client.PRODUCT_CHOICES)
@@ -71,14 +72,17 @@ class ClientAdminCreateSerializer(serializers.ModelSerializer):
 class StakeholderGroupSerializer(serializers.ModelSerializer):
     """Serializer for stakeholder groups"""
     stakeholders_count = serializers.SerializerMethodField()
-    
+    stakeholder_invite_url = serializers.SerializerMethodField()
     class Meta:
         model = StakeholderGroup
-        fields = ['id', 'name', 'created_at', 'is_active', 'stakeholders_count']
-        read_only_fields = ['id', 'created_at']
+        fields = ['id', 'name', 'created_at', 'is_active', 'stakeholders_count', 'invitation_token', 'stakeholder_invite_url']
+        read_only_fields = ['id', 'created_at', 'invitation_token']
     
     def get_stakeholders_count(self, obj):
         return obj.stakeholders.count()
+    
+    def get_stakeholder_invite_url(self, obj):
+        return obj.get_invite_full_url()
 
 # class StakeholderCreateSerializer(serializers.ModelSerializer):
 #     """Serializer for creating stakeholders"""
