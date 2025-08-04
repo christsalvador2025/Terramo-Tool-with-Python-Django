@@ -1,5 +1,5 @@
 from rest_framework import serializers
-from .models import Invitation, ClientProduct, Client
+from .models import Invitation, ClientProduct, Client, ClientInvitation
 from core_apps.products.models import Product
 from django.utils import timezone
 from core_apps.clients.models import Client, Invitation # Import Client model
@@ -274,70 +274,253 @@ class ClientProductDataSerializer(serializers.ModelSerializer):
         read_only_fields = ['id', 'purchased_at']
 
 
+# class ClientCreateDataSerializer(serializers.ModelSerializer):
+#     """Serializer for creating clients with products and invitation"""
+   
+#     # Product selection (write-only)
+#     # product_ids = serializers.ListField(
+#     #     child=serializers.IntegerField(),
+#     #     write_only=True,
+#     #     required=False,
+#     #     help_text="List of product IDs to associate with the client"
+#     # )
+#     product_ids = serializers.ListField(
+#         child=serializers.UUIDField(),
+#         write_only=True,
+#         required=False,
+#         help_text="List of product UUIDs to associate with the client"
+#     )
+    
+#     # Client products (read-only for response)
+#     client_products = ClientProductDataSerializer(
+#         source='clientproduct_set',
+#         many=True,
+#         read_only=True
+#     )
+    
+#     # Invitation details
+#     send_invitation = serializers.BooleanField(
+#         default=True, 
+#         write_only=True,
+#         help_text="Whether to send an invitation email"
+#     )
+    
+#     invitation_expires_days = serializers.IntegerField(
+#         default=30,
+#         write_only=True,
+#         help_text="Number of days until invitation expires"
+#     )
+#     raw_token = serializers.UUIDField(
+#         write_only=True,
+#         required=False,
+#         help_text="token invitation"
+#     )
+#     # raw_token = serializers.UUIDField(write_only=True, required=False)
+
+#     class Meta:
+#         model = Client
+#         fields = [
+#             # Company Data
+#             'id', 'company_name', 'date', 'company_photo', 'role',
+            
+#             # Contact Person
+#             'contact_person_first_name', 'contact_person_last_name',
+#             'gender', 'year_of_birth',
+            
+#             # Address Details
+#             'street', 'zip_code', 'location', 'landline_number',
+#             'mobile_phone_number', 'city', 'land', 'email',
+            
+#             # Other fields
+#             'miscellaneous', 'is_active',
+            
+#             # Relations and special fields
+#             'client_products', 'product_ids', 'send_invitation',
+#             'invitation_expires_days', 'invitation_token', 'raw_token',
+            
+#             # Timestamps
+#             'created_at', 'updated_at'
+#         ]
+#         read_only_fields = [
+#             'id', 'invitation_token', 'created_at', 'updated_at'
+#         ]
+#         extra_kwargs = {
+#             'email': {'validators': [EmailValidator()]},
+#             'contact_person_first_name': {'required': True},
+#             'year_of_birth': {'required': True},
+#             'street': {'required': True},
+#             'location': {'required': True},
+#             'city': {'required': True},
+#         }
+    
+#     def validate_email(self, value):
+#         """Validate email uniqueness"""
+#         email = value.lower().strip()
+#         if self.instance:  # Update case
+#             if Client.objects.filter(email=email).exclude(pk=self.instance.pk).exists():
+#                 raise serializers.ValidationError("A client with this email already exists.")
+#         else:  # Create case
+#             if Client.objects.filter(email=email).exists():
+#                 raise serializers.ValidationError("A client with this email already exists.")
+#         return email
+    
+#     def validate_year_of_birth(self, value):
+#         """Validate year of birth"""
+#         current_year = timezone.now().year
+#         if value < 1900 or value > current_year - 18:
+#             raise serializers.ValidationError(
+#                 f"Year of birth must be between 1900 and {current_year - 18}"
+#             )
+#         return value
+    
+#     # def validate_product_ids(self, value):
+#     #     """Validate that all product IDs exist"""
+#     #     if value:
+#     #         existing_products = Product.objects.filter(id__in=value)
+#     #         if existing_products.count() != len(value):
+#     #             invalid_ids = set(value) - set(existing_products.values_list('id', flat=True))
+#     #             raise serializers.ValidationError(
+#     #                 f"Invalid product IDs: {list(invalid_ids)}"
+#     #             )
+#     #     return value
+    
+    
+#     def validate_product_ids(self, value):
+#         """Ensure all product UUIDs exist in the database"""
+#         existing_products = Product.objects.filter(id__in=value)
+#         if existing_products.count() != len(value):
+#             existing_ids = set(existing_products.values_list('id', flat=True))
+#             invalid_ids = set(value) - existing_ids
+#             raise serializers.ValidationError(
+#                 f"Invalid product IDs: {list(invalid_ids)}"
+#             )
+#         return value
+    
+#     @transaction.atomic
+#     def create(self, validated_data):
+#         """Create client with products and invitation"""
+#         try:
+#             # generated_token = serializers.UUIDField(write_only=True, required=False)
+#             product_ids = validated_data.pop('product_ids', [])
+#             # print(f"product_ids => {product_ids}")
+#             send_invitation = validated_data.pop('send_invitation', True)
+#             invitation_expires_days = validated_data.pop('invitation_expires_days', 30)
+        
+#             raw_token = validated_data.pop('raw_token', uuid.uuid4())
+#             print(f"raw_token => {raw_token}")
+        
+#             # Set created_by if available in context
+#             request = self.context.get('request')
+#             if request and hasattr(request, 'user'):
+#                 validated_data['created_by'] = request.user
+            
+#             # Create client
+#             client = Client.objects.create(**validated_data)
+            
+#             # create client invitation
+#             ClientInvitation.objects.create(
+#                 token=raw_token,
+#                 client=client
+#             )
+#             # Create client-product relationships
+#             if product_ids:
+#                 client_products = []
+#                 for product_id in product_ids:
+#                     client_products.append(
+#                         ClientProduct(
+#                             client=client,
+#                             product_id=product_id,
+#                             purchased_at=timezone.now(),
+#                             is_active=True
+#                         )
+#                     )
+#                 ClientProduct.objects.bulk_create(client_products)
+            
+#             # Create invitation if requested
+#             if send_invitation:
+
+                
+#                 expires_at = timezone.now() + timezone.timedelta(days=invitation_expires_days)
+#                 Invitation.objects.create(
+#                     client=client,
+#                     email=client.email,
+#                     token=raw_token,
+#                     invited_by=request.user if request and hasattr(request, 'user') else None,
+#                     expires_at=expires_at,
+#                     sent_at=timezone.now(),
+#                     status=InvitationStatus.NOT_ACCEPTED
+#                 )
+            
+#             return client
+        
+#         except Exception as e:
+#             # logger.error(f"Unexpected error creating client-product relationships: {str(e)}")
+#             # raise serializers.ValidationError({
+#             #     'product_ids': 'Error assigning products to client.'
+#             # })
+#             raise serializers.ValidationError({
+#                 'error': str(e)  # thik 
+#             })
+
 class ClientCreateDataSerializer(serializers.ModelSerializer):
     """Serializer for creating clients with products and invitation"""
-   
-    # Product selection (write-only)
-    # product_ids = serializers.ListField(
-    #     child=serializers.IntegerField(),
-    #     write_only=True,
-    #     required=False,
-    #     help_text="List of product IDs to associate with the client"
-    # )
+
     product_ids = serializers.ListField(
         child=serializers.UUIDField(),
         write_only=True,
         required=False,
         help_text="List of product UUIDs to associate with the client"
     )
-    
-    # Client products (read-only for response)
+
     client_products = ClientProductDataSerializer(
         source='clientproduct_set',
         many=True,
         read_only=True
     )
-    
-    # Invitation details
+
     send_invitation = serializers.BooleanField(
-        default=True, 
+        default=True,
         write_only=True,
         help_text="Whether to send an invitation email"
     )
-    
+
     invitation_expires_days = serializers.IntegerField(
         default=30,
         write_only=True,
         help_text="Number of days until invitation expires"
     )
+
     raw_token = serializers.UUIDField(
         write_only=True,
         required=False,
         help_text="token invitation"
     )
-    # raw_token = serializers.UUIDField(write_only=True, required=False)
+
+    # Expose the actual raw token used for the ClientInvitation (read-only)
+    invitation_raw_token = serializers.SerializerMethodField(read_only=True)
 
     class Meta:
         model = Client
         fields = [
             # Company Data
             'id', 'company_name', 'date', 'company_photo', 'role',
-            
+
             # Contact Person
             'contact_person_first_name', 'contact_person_last_name',
             'gender', 'year_of_birth',
-            
+
             # Address Details
             'street', 'zip_code', 'location', 'landline_number',
             'mobile_phone_number', 'city', 'land', 'email',
-            
+
             # Other fields
             'miscellaneous', 'is_active',
-            
+
             # Relations and special fields
             'client_products', 'product_ids', 'send_invitation',
             'invitation_expires_days', 'invitation_token', 'raw_token',
-            
+            'invitation_raw_token',
+
             # Timestamps
             'created_at', 'updated_at'
         ]
@@ -352,7 +535,12 @@ class ClientCreateDataSerializer(serializers.ModelSerializer):
             'location': {'required': True},
             'city': {'required': True},
         }
-    
+
+    def get_invitation_raw_token(self, obj):
+        # Assumes default related_name from ClientInvitation to Client is 'clientinvitation'
+        ci = getattr(obj, 'clientadmin_invitation', None)
+        return ci.token if ci else None
+
     def validate_email(self, value):
         """Validate email uniqueness"""
         email = value.lower().strip()
@@ -363,7 +551,7 @@ class ClientCreateDataSerializer(serializers.ModelSerializer):
             if Client.objects.filter(email=email).exists():
                 raise serializers.ValidationError("A client with this email already exists.")
         return email
-    
+
     def validate_year_of_birth(self, value):
         """Validate year of birth"""
         current_year = timezone.now().year
@@ -372,19 +560,7 @@ class ClientCreateDataSerializer(serializers.ModelSerializer):
                 f"Year of birth must be between 1900 and {current_year - 18}"
             )
         return value
-    
-    # def validate_product_ids(self, value):
-    #     """Validate that all product IDs exist"""
-    #     if value:
-    #         existing_products = Product.objects.filter(id__in=value)
-    #         if existing_products.count() != len(value):
-    #             invalid_ids = set(value) - set(existing_products.values_list('id', flat=True))
-    #             raise serializers.ValidationError(
-    #                 f"Invalid product IDs: {list(invalid_ids)}"
-    #             )
-    #     return value
-    
-    
+
     def validate_product_ids(self, value):
         """Ensure all product UUIDs exist in the database"""
         existing_products = Product.objects.filter(id__in=value)
@@ -395,59 +571,69 @@ class ClientCreateDataSerializer(serializers.ModelSerializer):
                 f"Invalid product IDs: {list(invalid_ids)}"
             )
         return value
-    
+
     @transaction.atomic
     def create(self, validated_data):
         """Create client with products and invitation"""
-        # generated_token = serializers.UUIDField(write_only=True, required=False)
-        product_ids = validated_data.pop('product_ids', [])
-        # print(f"product_ids => {product_ids}")
-        send_invitation = validated_data.pop('send_invitation', True)
-        invitation_expires_days = validated_data.pop('invitation_expires_days', 30)
-     
-        raw_token = validated_data.pop('raw_token', uuid.uuid4())
-        print(f"raw_token => {raw_token}")
-     
-        # Set created_by if available in context
-        request = self.context.get('request')
-        if request and hasattr(request, 'user'):
-            validated_data['created_by'] = request.user
-        
-        # Create client
-        client = Client.objects.create(**validated_data)
-        
-        # Create client-product relationships
-        if product_ids:
-            client_products = []
-            for product_id in product_ids:
-                client_products.append(
-                    ClientProduct(
-                        client=client,
-                        product_id=product_id,
-                        purchased_at=timezone.now(),
-                        is_active=True
-                    )
-                )
-            ClientProduct.objects.bulk_create(client_products)
-        
-        # Create invitation if requested
-        if send_invitation:
+        try:
+            product_ids = validated_data.pop('product_ids', [])
+            send_invitation = validated_data.pop('send_invitation', True)
+            invitation_expires_days = validated_data.pop('invitation_expires_days', 30)
+            raw_token = validated_data.pop('raw_token', uuid.uuid4())
+
+            # Set created_by if available in context
+            request = self.context.get('request')
+            if request and hasattr(request, 'user'):
+                validated_data['created_by'] = request.user
+
+            # Create client
+            client = Client.objects.create(**validated_data)
 
             
-            expires_at = timezone.now() + timezone.timedelta(days=invitation_expires_days)
-            Invitation.objects.create(
-                client=client,
-                email=client.email,
-                token=raw_token,
-                invited_by=request.user if request and hasattr(request, 'user') else None,
-                expires_at=expires_at,
-                sent_at=timezone.now(),
-                status=InvitationStatus.NOT_ACCEPTED
-            )
-        
-        return client
 
+            # Create ClientInvitation (separate record)
+            # client_invitation = ClientInvitation.objects.create(
+            #     token=raw_token,
+            #     client=client
+            # )
+            # # Override client's own invitation_token to match raw_token
+            # if hasattr(client_invitation, 'token'):
+            #     client_invitation.token = raw_token
+            #     client_invitation.save(update_fields=['token'])
 
+            # Create client-product relationships
+            if product_ids:
+                client_products = []
+                for product_id in product_ids:
+                    client_products.append(
+                        ClientProduct(
+                            client=client,
+                            product_id=product_id,
+                            purchased_at=timezone.now(),
+                            is_active=True
+                        )
+                    )
+                ClientProduct.objects.bulk_create(client_products)
+
+            # Create invitation if requested
+            # if send_invitation:
+            #     expires_at = timezone.now() + timezone.timedelta(days=invitation_expires_days)
+            #     ClientInvitation.objects.create(
+            #         client=client,
+            #         email=client.email,
+            #         token=raw_token,
+            #         invited_by=request.user if request and hasattr(request, 'user') else None,
+            #         expires_at=expires_at,
+            #         sent_at=timezone.now(),
+            #         status=InvitationStatus.NOT_ACCEPTED
+            #     )
+
+            return client
+
+        except Exception as e:
+            raise serializers.ValidationError({
+                'error': str(e)
+            })
 class ClientListSerializer(serializers.ModelSerializer):
     """Simplified serializer for listing clients"""
     products_count = serializers.SerializerMethodField()
@@ -564,3 +750,68 @@ class InvitationDataSerializer(serializers.ModelSerializer):
         # This will return the full URL including the frontend domain
         # assuming settings.DOMAIN is set up correctly.
         return obj.get_invite_url()
+
+class EmailLoginSerializer(serializers.Serializer):
+    """Serializer for email-only login"""
+    email = serializers.EmailField()
+    
+    def validate_email(self, value):
+        if not value:
+            raise serializers.ValidationError("Email is required.")
+        return value
+    
+class AcceptInvitationSerializer(serializers.Serializer):
+    """Serializer for accepting invitation"""
+    token = serializers.UUIDField()
+    
+    def validate_token(self, value):
+        """Validate invitation token"""
+        try:
+            invitation = ClientInvitation.objects.get(
+                token=value, 
+                is_active=True
+            )
+            self.context['invitation'] = invitation
+            return value
+        except ClientInvitation.DoesNotExist:
+            raise serializers.ValidationError("Invalid or expired invitation token.")
+
+
+
+
+
+
+class AcceptInvitationWithEmailSerializer(serializers.Serializer):
+    """Enhanced serializer for accepting invitation with email verification"""
+    email = serializers.EmailField()
+    token = serializers.UUIDField()
+    
+    def validate_email(self, value):
+        """Validate email field"""
+        if not value:
+            raise serializers.ValidationError("Email is required.")
+        return value
+    
+    def validate_token(self, value):
+        """Validate invitation token"""
+        try:
+            invitation = ClientInvitation.objects.get(
+                token=value, 
+                is_active=True
+            )
+            self.context['invitation'] = invitation
+            return value
+        except ClientInvitation.DoesNotExist:
+            raise serializers.ValidationError("Invalid or expired invitation token.")
+    
+    def validate(self, attrs):
+        """Ensure email matches the invitation email"""
+        email = attrs.get('email')
+        invitation = self.context.get('invitation')
+        print(f"yos- -{invitation.client.email}")
+        if invitation and invitation.client.email.lower() != email.lower():
+            raise serializers.ValidationError(
+                "The provided email does not match the invitation email."
+            )
+            
+        return attrs

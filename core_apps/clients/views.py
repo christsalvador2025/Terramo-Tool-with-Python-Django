@@ -7,7 +7,7 @@ from django.shortcuts import get_object_or_404
 from django.utils import timezone
 from django.db import transaction
 from django.contrib.auth import authenticate, get_user_model
-from .models import Invitation, Client, InvitationStatus
+from .models import Invitation, Client, InvitationStatus, ClientInvitation
 from .serializers import ClientSerializer, ClientCreateDataSerializer, ClientDetailSerializer, ClientListSerializer, InvitationDataSerializer
 from django.conf import settings
 from core_apps.user_auth.permissions import IsTerramoAdmin
@@ -15,7 +15,7 @@ import secrets
 import string
 import uuid
 from rest_framework.views import APIView
-from .serializers import StakeholderRegistrationSerializer, InvitationSerializer
+from .serializers import StakeholderRegistrationSerializer, InvitationSerializer, AcceptInvitationWithEmailSerializer
 from core_apps.common.permissions import IsTerramoAdmin
 User = get_user_model()
 from core_apps.authentication.models import ClientAdmin, StakeholderGroup, InvitationToken
@@ -189,14 +189,22 @@ class ClientViewDataSet(ModelViewSet):
             client=client,
             created_by=client_admin
         )
-        
+        invitation_raw_token = serializer.validated_data.get('raw_token')
         # Generate invitation token for client admin
-        invitation_token = InvitationToken.objects.create(
-            token_type='client_admin_invite',
-            client_admin=client_admin,
-            email=client_admin.email
+        # invitation_token = InvitationToken.objects.create(
+        #     token=invitation_token,
+        #     token_type='client_admin_invite',
+        #     client_admin=client_admin,
+        #     email=client_admin.email
+        # )
+        
+        # Create client invitations
+        invitation_token = ClientInvitation.objects.create(
+            token = invitation_raw_token,
+            client=client
         )
         
+
         # Send invitation email
         self.send_invitation_email(client_admin, invitation_token)
         logger.info(f"Client created: {serializer.instance.company_name} by {self.request.user}")
@@ -397,3 +405,163 @@ class InvitationAcceptDataView(APIView):
             },
             status=status.HTTP_200_OK
         )
+
+from django.utils.decorators import method_decorator
+from django.views.decorators.cache import never_cache
+from rest_framework.throttling import AnonRateThrottle, UserRateThrottle
+from .serializers import AcceptInvitationSerializer
+
+
+"""
+Remarks: Final Approach for Cliend Admin accept invitation
+"""
+@method_decorator(never_cache, name='dispatch')
+class ClientAdminAcceptInvitationView(APIView):
+    """Handle invitation acceptance"""
+    
+    permission_classes = [permissions.AllowAny]
+    throttle_classes = [AnonRateThrottle]
+    
+    def get(self, request, token):
+        """Handle invitation link click"""
+        try:
+            invitation = ClientInvitation.objects.select_related('client').get(
+                token=token,
+                is_active=True
+            )
+            
+            # Check if already accepted and verified
+            if invitation.is_accepted and invitation.email_verified:
+                # Redirect to login page
+                redirect_url = f"{settings.FRONTEND_DOMAIN_URL}/{settings.FRONTEND_CLIENT_LOGIN_ENDPOINT}"
+                # return redirect(redirect_url)
+                return Response({
+                    "message": "Invitation already accepted. Please login using your email.",
+                    "message_stat" : "accepted_and_verified",
+                    "redirect_url": redirect_url
+                }, status=status.HTTP_200_OK)
+            
+            # Mark as accepted if not already
+            if not invitation.is_accepted:
+                invitation.is_accepted = True
+                invitation.accepted_at = timezone.now()
+                invitation.save(update_fields=['is_accepted', 'accepted_at'])
+
+                return Response({
+                    "message": "Invitation Accepted. Please verify, enter again your email who received the invitation",
+                    "message_stat" : "accepted_and_for_verification",
+                    "redirect_url": None
+                }, status=status.HTTP_200_OK)
+            
+            
+        except ClientInvitation.DoesNotExist:
+       
+            return Response({
+                "message": "Invitation not found",
+                "message_stat" : "invitation_not_found",
+                "redirect_url": None
+            }, status=status.HTTP_404_NOT_FOUND)
+    
+    def post(self, request, token):
+        """API endpoint for invitation acceptance status"""
+        serializer = AcceptInvitationWithEmailSerializer(data=request.data)
+        print(f"request.data: {request.data}")
+        if serializer.is_valid():
+            invitation = serializer.context['invitation']
+            
+            ## Check if invitation is already registered
+            if invitation.email_verified and invitation.is_active and invitation.is_accepted:
+ 
+                return Response({
+                    'message': 'Email already verified, Login email sent. Please check your email and click the login link.'
+                })
+
+            if not invitation.is_accepted:
+                return Response({
+                    'message': 'Please check your email to accept the invitation first.'
+                })
+
+            # Mark invitation as registered for new users
+            invitation.email_verified = True
+            invitation.save()
+            
+            return Response({
+                'message': 'Successfully verified',
+                'email': invitation.client.email,
+                'action': 'email_verified',
+                'status': 'newly_registered',
+                'redirect_url': '/client-admin/dashboard/'
+            }, status=status.HTTP_200_OK)
+    
+        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+@method_decorator(never_cache, name='dispatch')
+class ClientAdminAcceptInvite(APIView):
+    permission_classes = [] # No authentication needed for this endpoint
+
+    def get(self, request, token, *args, **kwargs):
+        """Handles GET request to accept invitation via token in URL."""
+  
+        try:
+            invitation = get_object_or_404(ClientInvitation, token=token, is_active=True)
+        except Invitation.DoesNotExist:  
+            return Response(
+                {"detail": "Invitation not found or invalid token."},
+                status=status.HTTP_404_NOT_FOUND
+            )
+        except Exception as e: 
+            logger.error(f"Error retrieving invitation for token {token}: {e}")
+            return Response(
+                {"detail": "Not valid invitation."},
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR
+            )
+
+        try:
+            invitation = get_object_or_404(ClientInvitation, token=token)
+        except Exception:
+            return Response(
+                {"detail": "Invitation not found"},
+                status=status.HTTP_404_NOT_FOUND
+            )
+
+        
+        if not invitation.is_valid_for_acceptance():
+            if invitation.is_expired():
+                return Response(
+                    {"detail": "Invitation link has expired."},
+                    status=status.HTTP_410_GONE # 410 Gone for expired resources
+                )
+            elif invitation.status == InvitationStatus.REGISTERED:
+                return Response(
+                    {"detail": "Invitation has already been used to register an account."},
+                    status=status.HTTP_409_CONFLICT # 409 Conflict for already processed
+                )
+            else: # e.g., already accepted, or inactive for other reasons
+                return Response(
+                    {"detail": "Invitation is no longer active or valid for acceptance."},
+                    status=status.HTTP_400_BAD_REQUEST
+                )
+        
+
+        # Mark the invitation as accepted
+        invitation.accepted_at = timezone.now()
+        invitation.status = InvitationStatus.ACCEPTED
+        invitation.save()
+
+        # Log the acceptance
+        logger.info(f"Invitation token {token} accepted for client {invitation.client.company_name} ({invitation.email})")
+
+        # You can return the serialized invitation data or a simple success message
+        serializer = InvitationDataSerializer(invitation) # Use the new serializer
+        return Response(
+            {
+                "message": "Invitation accepted successfully. You can now proceed to registration.",
+                "invitation_details": serializer.data
+            },
+            status=status.HTTP_200_OK
+        )
+    
+
+
+
+
+

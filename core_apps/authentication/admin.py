@@ -20,6 +20,13 @@ from core_apps.clients.models import Client
 #     search_fields = ('company_name', 'email', 'first_name', 'last_name')
 #     readonly_fields = ('id', 'created_at', 'updated_at')
 
+# @admin.register(InvitationTokenData)
+# class InvitationTokenDataAdmin(admin.ModelAdmin):
+#     list_display = ('id', 'token', 'token_type')
+    # list_filter = ('is_active', 'created_at')
+    # search_fields = ('email', 'first_name', 'last_name', 'client__company_name')
+    # readonly_fields = ('id', 'created_at')
+
 @admin.register(ClientAdmin)
 class ClientAdminModelAdmin(admin.ModelAdmin):
     list_display = ('email', 'client', 'is_active', 'created_at', 'last_login')

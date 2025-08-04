@@ -10,7 +10,7 @@ from django.conf import settings
 from django.shortcuts import get_object_or_404
 from django.db import transaction
 import logging
-from core_apps.clients.models import Client
+from core_apps.clients.models import Client, ClientInvitation
 from .models import (
     ClientAdmin, Stakeholder, 
     StakeholderGroup, InvitationToken, LoginSession
@@ -24,6 +24,9 @@ from .serializers import (
 )
 from .permissions import IsTerramoAdmin, IsClientAdmin, IsStakeholder
 from .utils import generate_invitation_email, generate_login_email, set_auth_cookies
+from rest_framework.permissions import AllowAny, IsAuthenticated
+
+
 
 logger = logging.getLogger(__name__)
 
@@ -175,6 +178,78 @@ class ClientAdminInvitationAcceptView(APIView):
                 {'error': 'Invalid invitation'}, 
                 status=status.HTTP_400_BAD_REQUEST
             )
+
+class ClientAcceptInviteVerifiedLogin(APIView):
+    """FINAL: Client Accepted the Invite, verified email and log them in"""
+    permission_classes = [permissions.AllowAny]
+    
+    def post(self, request):
+        serializer = EmailLoginSerializer(data=request.data)
+        
+        if not serializer.is_valid():
+            return Response(
+                {'error': 'Invalid input', 'details': serializer.errors}, 
+                status=status.HTTP_400_BAD_REQUEST
+            )
+        
+        email = serializer.validated_data['email']
+        
+        try:
+            client_admin = ClientAdmin.objects.get(email=email, is_active=True)
+
+        except ClientAdmin.DoesNotExist:
+            return Response(
+                {'error': 'Client admin not found or inactive'}, 
+                status=status.HTTP_404_NOT_FOUND
+            )
+        
+        # Check if there's a valid existing invitation
+        accepted_invitation = ClientInvitation.objects.filter(
+            email=email,
+            token_type='client_admin_invite',
+            is_used=True
+        ).first()
+        
+        if not accepted_invitation:
+            return Response(
+                {'error': 'No valid invitation found. Please contact Terramo admin.'}, 
+                status=status.HTTP_403_FORBIDDEN
+            )
+        
+        # Generate login token
+        login_token = InvitationToken.objects.create(
+            token_type='login_token',
+            client_admin=client_admin,
+            email=email
+        )
+        
+        # Send login email
+        self.send_login_email(client_admin, login_token)
+        
+        return Response({
+            'message': 'Login email sent. Please check your email and click the login link.'
+        })
+    
+    def send_login_email(self, client_admin, login_token):
+        """Send login email to client admin"""
+        subject = "Login to Terramo System"
+        login_link = f"{settings.DOMAIN}/api/v1/authentication/client-admin/login/{login_token.token}"
+        
+        message = generate_login_email(
+            client_admin.first_name,
+            login_link
+        )
+        
+        try:
+            send_mail(
+                subject=subject,
+                message=message,
+                from_email=settings.DEFAULT_FROM_EMAIL,
+                recipient_list=[client_admin.email],
+                fail_silently=False,
+            )
+        except Exception as e:
+            logger.error(f"Failed to send login email to {client_admin.email}: {e}")
 
 class ClientAdminLoginView(APIView):
     """Login view for Client Admin (email only)"""
@@ -862,3 +937,8 @@ class LogoutView(APIView):
         response.delete_cookie('session_key', path=settings.COOKIE_PATH)
         
         return response
+
+
+"""
+Final: v2
+"""

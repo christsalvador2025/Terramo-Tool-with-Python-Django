@@ -18,6 +18,12 @@ urlpatterns = [
     # Client Admin URLs
     path('client-admin/accept-invitation/<str:token>/', 
          ClientAdminInvitationAcceptView.as_view(), name='client_admin_accept_invitation'),
+     # new path
+#     path('client-admin/accept-invite/<uuid:token>/', ClientAdminAcceptInviteView.as_view(), name='client-admin-accept-invite'),
+#     path('client-admin/auth/login/', ClientAdminLoginAuthView.as_view(), name='client-admin-login'),
+#     path('client-admin/auth/logout/', LogoutViewData.as_view(), name='logout'),
+
+
     path('client-admin/login/', ClientAdminLoginView.as_view(), name='client_admin_login'),
     path('client-admin/login/<str:token>/', 
          ClientAdminTokenLoginView.as_view(), name='client_admin_token_login'),

@@ -9,8 +9,27 @@ from django.shortcuts import redirect
 from django.utils.html import format_html
 from django.urls import reverse
 from django.conf import settings
-from .models import Invitation, InvitationStatus
+from .models import Invitation, InvitationStatus, ClientInvitation
 from django.template.defaultfilters import date as date_filter
+ 
+@admin.register(ClientInvitation)
+class ClientInvitation(admin.ModelAdmin):
+    list_display = [
+        "client",
+        "token",
+        "invite_url",
+        "is_active",
+        "email_verified",
+        "is_accepted",
+        # "year",
+        "accepted_at"
+     
+    ]
+
+    def invite_url(self, obj):
+        return obj.get_invite_url()
+    
+    readonly_fields = ["token", "invite_url"]
 @admin.register(Client)
 class ClientAdmin(admin.ModelAdmin):
     list_display = [

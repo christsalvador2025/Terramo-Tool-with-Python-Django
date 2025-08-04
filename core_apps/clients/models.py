@@ -16,7 +16,8 @@ from django.urls import reverse
 import os
 # User = get_user_model()
 User = settings.AUTH_USER_MODEL
-
+# from django.core.validators import EmailValidator
+# email = models.EmailField(unique=True, validators=[EmailValidator()])
 DEFAULT_STAKEHOLDER_GROUP_NAMES = ["Management / Executive Board"]
 
 def client_image_path(instance, filename):
@@ -68,7 +69,8 @@ class Client(TimeStampedModel):
     company_photo = models.ImageField(
         verbose_name=_("Company Photo"), 
         default="/company_default.png",
-        upload_to=client_image_path,
+        # upload_to=client_image_path,
+        upload_to="uploads/"
     )
     role = models.CharField(max_length=20, choices=CompanyRole.choices, default=CompanyRole.TERRAMO_CUSTOMER)
 
@@ -126,7 +128,63 @@ class Client(TimeStampedModel):
     def __str__(self):
         return self.company_name
     
+class InvitationStatus(models.TextChoices):
+    NOT_ACCEPTED = 'not_accepted', _('Not Accepted')
+    ACCEPTED = 'accepted', _('Accepted (Link Clicked)')
+    REGISTERED = 'registered', _('Registered (Account Created)')
 
+
+class ClientInvitation(TimeStampedModel):
+    token = models.UUIDField(default=uuid.uuid4, unique=True, editable=False)
+    client = models.OneToOneField(   
+        'clients.Client', 
+        on_delete=models.CASCADE, 
+        related_name='clientadmin_invitation'   
+    )
+
+    accepted_at = models.DateTimeField(null=True, blank=True, verbose_name=_('Accepted At'))
+
+    is_active = models.BooleanField(default=True, verbose_name=_('Is Active'))
+    email_verified = models.BooleanField(default=False, verbose_name=_('Is Email Verified'))
+    is_accepted = models.BooleanField(default=False, verbose_name=_('Is Accepted'))
+
+    # year = models.PositiveIntegerField(blank=False, null=False, help_text="YYYY")
+
+    class Meta:
+        verbose_name = _('Client Invitation')
+        verbose_name_plural = _('Client Invitations')
+        ordering = ['-created_at']
+
+  
+
+    def __str__(self):
+        return f"{self.client.company_name} - {self.client.email}"
+
+    def get_invite_url(self):
+        
+        # example : http://localhost:3000/client-admin/accept-invitation/96b78b5e-e88e-4577-b9ce-fcc7cac67c8d/
+        return f"{settings.FRONTEND_DOMAIN_URL}/{settings.FRONTEND_CLIENT_ACCEPT_ENDPOINT}/{self.token}/"
+    
+    def is_already_accepted_and_verified(self):
+        # A link is valid for acceptance if it's active, not expired, and not yet registered
+        return self.is_active and self.email_verified and self.is_accepted
+    
+    # def is_expired(self):
+    #     return self.expires_at and self.expires_at < timezone.now()
+
+    # def is_valid_for_acceptance(self):
+    #     # A link is valid for acceptance if it's active, not expired, and not yet registered
+    #     return self.is_active and not self.is_expired() and self.status != InvitationStatus.REGISTERED
+
+    # def mark_status(self, new_status):
+    #     if new_status in InvitationStatus:
+    #         self.status = new_status
+    #         if new_status == InvitationStatus.REGISTERED:
+    #             self.is_active = False # A registered invite should no longer be active
+    #         self.save()
+    #     else:
+    #         raise ValueError(f"Invalid invitation status: {new_status}")
+        
 class ClientProduct(TimeStampedModel):
     """Through model for Client-Product relationship"""
     
@@ -143,11 +201,7 @@ class ClientProduct(TimeStampedModel):
             models.Index(fields=['client', 'is_active']),
         ]
 
-class InvitationStatus(models.TextChoices):
-    NOT_ACCEPTED = 'not_accepted', _('Not Accepted')
-    ACCEPTED = 'accepted', _('Accepted (Link Clicked)')
-    REGISTERED = 'registered', _('Registered (Account Created)')
-    # You could add 'EXPIRED' but is_expired() method handles it better
+
 
 class Invitation(models.Model):
     token = models.UUIDField(default=uuid.uuid4, unique=True, editable=False)

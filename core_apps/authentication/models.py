@@ -40,6 +40,7 @@ import secrets
 from datetime import timedelta
 from django.conf import settings
 from core_apps.clients.models import Client
+ 
 User = settings.AUTH_USER_MODEL
 # class User(AbstractUser):
 #     """Extended User model for Terramo Admin only"""
@@ -215,6 +216,55 @@ class InvitationToken(models.Model):
     def __str__(self):
         return f"{self.token_type} - {self.email} - {'Valid' if self.is_valid() else 'Invalid'}"
 
+class InvitationTokenData(models.Model):
+    TOKEN_TYPES = [
+        ('client_admin_invite', 'Client Admin Invitation'),
+        ('stakeholder_invite', 'Stakeholder Invitation'),
+        ('login_token', 'Login Token'),
+    ]
+    
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    token = models.UUIDField(default=uuid.uuid4, unique=True)
+    token_type = models.CharField(max_length=30, choices=TOKEN_TYPES)
+    email = models.EmailField(validators=[EmailValidator()])
+    
+    # Foreign keys for different token types
+    client_admin = models.ForeignKey(ClientAdmin, on_delete=models.CASCADE, null=True, blank=True, related_name='clientadmin_invitation_tokens')
+    stakeholder = models.ForeignKey(Stakeholder, on_delete=models.CASCADE, null=True, blank=True, related_name='stakeholder_invitation_tokens')
+    created_by_user = models.ForeignKey(User, on_delete=models.CASCADE, null=True, blank=True, related_name='user_tokens_created')
+    created_by_client_admin = models.ForeignKey(ClientAdmin, on_delete=models.CASCADE, null=True, blank=True, related_name='tokens_created_by_client')
+    
+    is_used = models.BooleanField(default=False)
+    is_active = models.BooleanField(default=True)
+    expires_at = models.DateTimeField()
+    used_at = models.DateTimeField(null=True, blank=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    
+    def save(self, *args, **kwargs):
+        if not self.expires_at:
+            if self.token_type == 'login_token':
+                self.expires_at = timezone.now() + timedelta(hours=1)  # 1 hour for login tokens
+            else:
+                self.expires_at = timezone.now() + timedelta(days=7)  # 7 days for invitation tokens
+        super().save(*args, **kwargs)
+    
+    def is_expired(self):
+        return timezone.now() > self.expires_at
+    
+    def is_valid(self):
+        return self.is_active and not self.is_used and not self.is_expired()
+    
+    def mark_as_used(self):
+        self.is_used = True
+        self.used_at = timezone.now()
+        self.save()
+    
+    class Meta:
+        unique_together = ['token', 'token_type']
+    
+    def __str__(self):
+        return f"{self.get_token_type_display()} - {self.email}"
+    
 class LoginSession(models.Model):
     """Track login sessions for non-User entities"""
     SESSION_TYPES = [

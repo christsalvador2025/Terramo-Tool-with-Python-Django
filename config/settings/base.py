@@ -3,7 +3,7 @@ from dotenv import load_dotenv
 from os import getenv, path
 from loguru import logger
 from datetime import timedelta, date
-import cloudinary
+# import cloudinary
 import os
 
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
@@ -18,6 +18,11 @@ if path.isfile(local_env_file):
 
 DOMAIN = getenv("DOMAIN")
 FRONTEND_DOMAIN_URL = getenv("FRONTEND_DOMAIN_URL")
+FRONTEND_CLIENT_ACCEPT_ENDPOINT = getenv("FRONTEND_CLIENT_ACCEPT_ENDPOINT")
+FRONTEND_STAKEHOLDER_ACCEPT_ENDPOINT = getenv("FRONTEND_STAKEHOLDER_ACCEPT_ENDPOINT")
+FRONTEND_STAKEHOLDER_LOGIN_ENDPOINT = getenv("FRONTEND_STAKEHOLDER_LOGIN_ENDPOINT")
+FRONTEND_CLIENT_LOGIN_ENDPOINT = getenv("FRONTEND_CLIENT_LOGIN_ENDPOINT")
+
 API_VERSION = getenv("API_VERSION")
 # Application definition
 
@@ -41,7 +46,7 @@ THIRD_PARTY_APPS = [
     "phonenumber_field",
     "drf_spectacular",
     "djoser",
-    "cloudinary",
+    # "cloudinary",
     "django_filters",
     "djcelery_email",
     "django_celery_beat",
@@ -178,6 +183,10 @@ STATICFILES_DIRS = [
     os.path.join(BASE_DIR, 'static'),
 ]
 
+# media (user-uploaded) files
+MEDIA_URL = "/media/"
+MEDIA_ROOT = BASE_DIR / "media"
+
 
 FILE_UPLOAD_MAX_MEMORY_SIZE = 5 * 1024 * 1024  # 5MB
 DATA_UPLOAD_MAX_MEMORY_SIZE = 10 * 1024 * 1024  # 10MB
@@ -280,15 +289,15 @@ CELERY_WORKER_SEND_TASK_EVENTS = True
 #     },
 # }
 
-CLOUDINARY_CLOUD_NAME = getenv("CLOUDINARY_CLOUD_NAME")
-CLOUDINARY_API_KEY = getenv("CLOUDINARY_API_KEY")
-CLOUDINARY_API_SECRET = getenv("CLOUDINARY_API_SECRET")
+# CLOUDINARY_CLOUD_NAME = getenv("CLOUDINARY_CLOUD_NAME")
+# CLOUDINARY_API_KEY = getenv("CLOUDINARY_API_KEY")
+# CLOUDINARY_API_SECRET = getenv("CLOUDINARY_API_SECRET")
 
-cloudinary.config(
-    cloud_name=CLOUDINARY_CLOUD_NAME,
-    api_key=CLOUDINARY_API_KEY,
-    api_secret=CLOUDINARY_API_SECRET,
-)
+# cloudinary.config(
+#     cloud_name=CLOUDINARY_CLOUD_NAME,
+#     api_key=CLOUDINARY_API_KEY,
+#     api_secret=CLOUDINARY_API_SECRET,
+# )
 
 COOKIE_NAME = "access"
 

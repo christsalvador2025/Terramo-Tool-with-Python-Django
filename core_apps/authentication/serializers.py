@@ -167,3 +167,39 @@ class StakeholderDetailSerializer(serializers.ModelSerializer):
             'is_registered', 'created_at', 'last_login',
             'group_name', 'client_company'
         ]
+
+
+"""
+Final: v2
+"""
+
+class ClientSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Client
+        fields = [
+            'company_name', 'company_contact_email', 'date_required', 'products',
+            'first_name', 'last_name', 'gender', 'birth_year',
+            'street', 'postal_code', 'city', 'country',
+            'phone_number', 'mobile_number', 'email',
+            'internal_processing_note'
+        ]
+        
+# class EmailLoginAuthSerializer(serializers.Serializer):
+#     email = serializers.EmailField()
+    
+#     def validate_email(self, value):
+#         if not value:
+#             raise serializers.ValidationError("Email is required.")
+#         return value.lower()
+    
+# class ClientAdminLoginSerializer(EmailLoginAuthSerializer):
+#     def validate(self, attrs):
+#         email = attrs.get('email')
+        
+#         try:
+#             client_admin = ClientAdmin.objects.get(email=email, is_active=True)
+#             attrs['client_admin'] = client_admin
+#         except ClientAdmin.DoesNotExist:
+#             raise serializers.ValidationError("Invalid email or client admin not found.")
+        
+#         return attrs
