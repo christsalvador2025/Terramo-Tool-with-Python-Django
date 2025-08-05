@@ -45,5 +45,5 @@ urlpatterns = [
          StakeholderTokenLoginView.as_view(), name='stakeholder_token_login'),
     
     # Universal logout
-    path('logout/', LogoutView.as_view(), name='logout'),
+    path('logout/', LogoutView.as_view(), name='universal-logout'),
 ]

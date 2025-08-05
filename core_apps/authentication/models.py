@@ -128,7 +128,7 @@ class StakeholderGroup(models.Model):
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
     name = models.CharField(max_length=100)
     client = models.ForeignKey(Client, on_delete=models.CASCADE, related_name='stakeholder_groups')
-    created_by = models.ForeignKey(ClientAdmin, on_delete=models.CASCADE)
+    created_by = models.ForeignKey(User, on_delete=models.CASCADE)
     created_at = models.DateTimeField(auto_now_add=True)
     is_active = models.BooleanField(default=True)
     invitation_token = models.UUIDField(default=uuid.uuid4, unique=True, editable=False)
@@ -216,54 +216,54 @@ class InvitationToken(models.Model):
     def __str__(self):
         return f"{self.token_type} - {self.email} - {'Valid' if self.is_valid() else 'Invalid'}"
 
-class InvitationTokenData(models.Model):
-    TOKEN_TYPES = [
-        ('client_admin_invite', 'Client Admin Invitation'),
-        ('stakeholder_invite', 'Stakeholder Invitation'),
-        ('login_token', 'Login Token'),
-    ]
+# class InvitationTokenData(models.Model):
+#     TOKEN_TYPES = [
+#         ('client_admin_invite', 'Client Admin Invitation'),
+#         ('stakeholder_invite', 'Stakeholder Invitation'),
+#         ('login_token', 'Login Token'),
+#     ]
     
-    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
-    token = models.UUIDField(default=uuid.uuid4, unique=True)
-    token_type = models.CharField(max_length=30, choices=TOKEN_TYPES)
-    email = models.EmailField(validators=[EmailValidator()])
+#     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+#     token = models.UUIDField(default=uuid.uuid4, unique=True)
+#     token_type = models.CharField(max_length=30, choices=TOKEN_TYPES)
+#     email = models.EmailField(validators=[EmailValidator()])
     
-    # Foreign keys for different token types
-    client_admin = models.ForeignKey(ClientAdmin, on_delete=models.CASCADE, null=True, blank=True, related_name='clientadmin_invitation_tokens')
-    stakeholder = models.ForeignKey(Stakeholder, on_delete=models.CASCADE, null=True, blank=True, related_name='stakeholder_invitation_tokens')
-    created_by_user = models.ForeignKey(User, on_delete=models.CASCADE, null=True, blank=True, related_name='user_tokens_created')
-    created_by_client_admin = models.ForeignKey(ClientAdmin, on_delete=models.CASCADE, null=True, blank=True, related_name='tokens_created_by_client')
+#     # Foreign keys for different token types
+#     client_admin = models.ForeignKey(ClientAdmin, on_delete=models.CASCADE, null=True, blank=True, related_name='clientadmin_invitation_tokens')
+#     stakeholder = models.ForeignKey(Stakeholder, on_delete=models.CASCADE, null=True, blank=True, related_name='stakeholder_invitation_tokens')
+#     created_by_user = models.ForeignKey(User, on_delete=models.CASCADE, null=True, blank=True, related_name='user_tokens_created')
+#     created_by_client_admin = models.ForeignKey(ClientAdmin, on_delete=models.CASCADE, null=True, blank=True, related_name='tokens_created_by_client')
     
-    is_used = models.BooleanField(default=False)
-    is_active = models.BooleanField(default=True)
-    expires_at = models.DateTimeField()
-    used_at = models.DateTimeField(null=True, blank=True)
-    created_at = models.DateTimeField(auto_now_add=True)
+#     is_used = models.BooleanField(default=False)
+#     is_active = models.BooleanField(default=True)
+#     expires_at = models.DateTimeField()
+#     used_at = models.DateTimeField(null=True, blank=True)
+#     created_at = models.DateTimeField(auto_now_add=True)
     
-    def save(self, *args, **kwargs):
-        if not self.expires_at:
-            if self.token_type == 'login_token':
-                self.expires_at = timezone.now() + timedelta(hours=1)  # 1 hour for login tokens
-            else:
-                self.expires_at = timezone.now() + timedelta(days=7)  # 7 days for invitation tokens
-        super().save(*args, **kwargs)
+#     def save(self, *args, **kwargs):
+#         if not self.expires_at:
+#             if self.token_type == 'login_token':
+#                 self.expires_at = timezone.now() + timedelta(hours=1)  # 1 hour for login tokens
+#             else:
+#                 self.expires_at = timezone.now() + timedelta(days=7)  # 7 days for invitation tokens
+#         super().save(*args, **kwargs)
     
-    def is_expired(self):
-        return timezone.now() > self.expires_at
+#     def is_expired(self):
+#         return timezone.now() > self.expires_at
     
-    def is_valid(self):
-        return self.is_active and not self.is_used and not self.is_expired()
+#     def is_valid(self):
+#         return self.is_active and not self.is_used and not self.is_expired()
     
-    def mark_as_used(self):
-        self.is_used = True
-        self.used_at = timezone.now()
-        self.save()
+#     def mark_as_used(self):
+#         self.is_used = True
+#         self.used_at = timezone.now()
+#         self.save()
     
-    class Meta:
-        unique_together = ['token', 'token_type']
+#     class Meta:
+#         unique_together = ['token', 'token_type']
     
-    def __str__(self):
-        return f"{self.get_token_type_display()} - {self.email}"
+#     def __str__(self):
+#         return f"{self.get_token_type_display()} - {self.email}"
     
 class LoginSession(models.Model):
     """Track login sessions for non-User entities"""

@@ -2,9 +2,10 @@ from django.contrib import admin
 from django.urls import path, include
 from rest_framework.routers import DefaultRouter
 
-from .views import InvitationAcceptView, ClientViewSet, GetInvitationFormView, ClientViewDataSet, InvitationAcceptDataView, ClientAdminAcceptInvitationView
+from .views import InvitationAcceptView, ClientViewSet, GetInvitationFormView, ClientViewDataSet, InvitationAcceptDataView, ClientAdminAcceptInvitationView, ClientAdminLogoutView, ClientAdminCustomLogoutView, ClientAdminVerifyInvitationtokenView
 router = DefaultRouter()
 app_name = 'clients'
+ 
 
 # router.register(r'', ClientViewDataSet, basename='clients')
 router.register(r'', ClientViewDataSet, basename='clients')
@@ -23,5 +24,9 @@ urlpatterns = [
     # path('/accept-invitation/<uuid:token>/', GetInvitationFormView.as_view(), name='get-invitation-form'),
     # path('create-client/', ClientViewSet, name='create_client'),
     # Client Admin Authentication
+    path("logout-client/", ClientAdminCustomLogoutView.as_view(), name="client_admin_logout"),
+
+    # invitations final
+    path("verify-login-token/", ClientAdminVerifyInvitationtokenView.as_view(), name="verify_otp"),
    
 ]

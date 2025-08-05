@@ -538,6 +538,7 @@ class ClientCreateDataSerializer(serializers.ModelSerializer):
 
     def get_invitation_raw_token(self, obj):
         # Assumes default related_name from ClientInvitation to Client is 'clientinvitation'
+        print(f"obs----{obj}")
         ci = getattr(obj, 'clientadmin_invitation', None)
         return ci.token if ci else None
 

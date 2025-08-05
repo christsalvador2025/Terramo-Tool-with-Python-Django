@@ -329,6 +329,7 @@ class ClientAdminTokenLoginView(APIView):
     def get(self, request, token):
         """Login client admin using token"""
         try:
+            # check if there is login token available
             login_token = get_object_or_404(
                 InvitationToken,
                 token=token,
@@ -905,7 +906,8 @@ class LogoutView(APIView):
     
     def post(self, request):
         session_key = request.COOKIES.get('session_key')
-        
+        logger.info(f"session_key {session_key}")
+        print(f"session_key {session_key}")
         if session_key:
             try:
                 # Deactivate session
@@ -917,6 +919,7 @@ class LogoutView(APIView):
         
         # For Terramo Admin JWT logout
         refresh_token = request.data.get('refresh_token') or request.COOKIES.get('refresh')
+        print(f"refresh -- token {refresh_token}")
         if refresh_token:
             try:
                 from rest_framework_simplejwt.tokens import RefreshToken

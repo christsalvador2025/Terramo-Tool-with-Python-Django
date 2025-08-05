@@ -147,7 +147,7 @@ class ClientInvitation(TimeStampedModel):
     is_active = models.BooleanField(default=True, verbose_name=_('Is Active'))
     email_verified = models.BooleanField(default=False, verbose_name=_('Is Email Verified'))
     is_accepted = models.BooleanField(default=False, verbose_name=_('Is Accepted'))
-
+    
     # year = models.PositiveIntegerField(blank=False, null=False, help_text="YYYY")
 
     class Meta:

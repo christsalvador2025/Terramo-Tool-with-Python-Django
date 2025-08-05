@@ -21,7 +21,7 @@ class User(AbstractUser):
         LOCKED = "locked", _("Locked")
 
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False, unique=True)
-    username = models.CharField(_("Username"), max_length=32, unique=True)
+    username = models.CharField(_("Username"), max_length=125, unique=True)
     
     # email = models.EmailField(_('email address'), unique=False, blank=False, null=False, db_index=True) 
     email = models.EmailField(_("Email"), unique=True, db_index=True)
@@ -30,8 +30,8 @@ class User(AbstractUser):
     # role = models.CharField(max_length=20, choices=UserRole.choices, default=UserRole.STAKEHOLDER)
     role = models.CharField(
         max_length=20,
-        choices=[('terramo_admin', 'Terramo Admin')],
-        default='terramo_admin'
+        choices=UserRole.choices, default=UserRole.STAKEHOLDER,
+        
     )
     # Client ForeignKey: null=True, blank=True allows Terramo Admins to have no client
     # client = models.ForeignKey(

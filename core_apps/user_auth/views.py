@@ -701,250 +701,305 @@ class LogoutAPIView(APIView):
 #         logger.info(f"Successful login with OTP: {user.email}")
 #         return response
 
+"""
+FINAL: 
+"""
+from core_apps.clients.models import ClientInvitation
+class ClientAdminVerifyView(APIView):
+    permission_classes = [permissions.AllowAny]
+
+    def post(self, request):
+        token = request.data.get("token")
+
+        if not token:
+            return Response(
+                {"error": "Token is required"},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+        # user = User.objects.filter(otp=otp, otp_expiry_time__gt=timezone.now()).first()
+        client_invitation = ClientInvitation.objects.filter(token=token)
+        if not client_invitation:
+            return Response(
+                {"error": "No Invitation Exist."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+        user = User.objects.filter(email=client_invitation.client.email)
+        if not user:
+            return Response(
+                {"error": "Invalid exiting user with that client"},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+        if user.is_locked_out:
+            return Response(
+                {
+                    "error": f"Account is locked due to multiple failed login attempts. "
+                    f"Please try again after "
+                    f"{settings.LOCKOUT_DURATION.total_seconds() / 60} minutes "
+                },
+                status=status.HTTP_403_FORBIDDEN,
+            )
+
+        # user.verify_otp(otp)
+
+        refresh = RefreshToken.for_user(user)
+        access_token = str(refresh.access_token)
+        refresh_token = str(refresh)
+
+        response = Response(
+            {
+                "success": "Login successful. Now add your profile information, "
+                "so that we can create an account for you"
+            },
+            status=status.HTTP_200_OK,
+        )
+        set_auth_cookies(response, access_token, refresh_token)
+        logger.info(f"Successful login with OTP: {user.email}")
+        return response
 
 
 
-
-# class ClientInvitationView(APIView):
-#     """
-#     Generate invitation link for Client Admin
-#     Only accessible by Terramo Admin (Super Admin)
-#     """
-#     permission_classes = [permissions.IsAuthenticated]
+from core_apps.clients.models import Client
+from .serializers import ClientInvitationSerializer
+class ClientInvitationView(APIView):
+    """
+    Generate invitation link for Client Admin
+    Only accessible by Terramo Admin (Super Admin)
+    """
+    permission_classes = [permissions.IsAuthenticated]
     
-#     def post(self, request):
-#         if not request.user.role == User.UserRole.SUPER_ADMIN:
-#             return Response(
-#                 {"error": "Only Super Admin can create client invitations"},
-#                 status=status.HTTP_403_FORBIDDEN
-#             )
+    def post(self, request):
+        if not request.user.role == User.UserRole.SUPER_ADMIN:
+            return Response(
+                {"error": "Only Super Admin can create client invitations"},
+                status=status.HTTP_403_FORBIDDEN
+            )
         
-#         serializer = ClientInvitationSerializer(data=request.data)
-#         if serializer.is_valid():
-#             try:
-#                 with transaction.atomic():
-#                     client = serializer.save()
+        serializer = ClientInvitationSerializer(data=request.data)
+        if serializer.is_valid():
+            try:
+                with transaction.atomic():
+                    client = serializer.save()
                     
-#                     # Generate invitation token
-#                     invitation_token = str(uuid.uuid4())
+                    # Generate invitation token
+                    invitation_token = str(uuid.uuid4())
                     
-#                     # Set expiration (24 hours from now)
-#                     expires_at = timezone.now() + timedelta(hours=24)
+                    # Set expiration (24 hours from now)
+                    expires_at = timezone.now() + timedelta(hours=24)
                     
-#                     # Store invitation details in client model or create a separate invitation model
-#                     client.invitation_token = invitation_token
-#                     client.invitation_expires_at = expires_at
-#                     client.save()
+                    # Store invitation details in client model or create a separate invitation model
+                    # client.invitation_token = invitation_token
+                    # client.invitation_expires_at = expires_at
+                    # client.save()
                     
-#                     # Generate invitation link
-#                     invitation_link = f"{settings.DOMAIN}/auth/client-login/{invitation_token}/"
+                    # Generate invitation link
+                    invitation_link = f"{settings.DOMAIN}/auth/client-login/{invitation_token}/"
                     
-#                     # Send invitation email
-#                     self._send_invitation_email(client, invitation_link)
+                    # Send invitation email
+                    self._send_invitation_email(client, invitation_link)
                     
-#                     return Response({
-#                         "message": "Client invitation created successfully",
-#                         "invitation_link": invitation_link,
-#                         "client_id": client.id,
-#                         "expires_at": expires_at
-#                     }, status=status.HTTP_201_CREATED)
+                    return Response({
+                        "message": "Client invitation created successfully",
+                        "invitation_link": invitation_link,
+                        "client_id": client.id,
+                        "expires_at": expires_at
+                    }, status=status.HTTP_201_CREATED)
                     
-#             except Exception as e:
-#                 logger.error(f"Error creating client invitation: {str(e)}")
-#                 return Response(
-#                     {"error": "Failed to create client invitation"},
-#                     status=status.HTTP_500_INTERNAL_SERVER_ERROR
-#                 )
+            except Exception as e:
+                logger.error(f"Error creating client invitation: {str(e)}")
+                return Response(
+                    {"error": "Failed to create client invitation"},
+                    status=status.HTTP_500_INTERNAL_SERVER_ERROR
+                )
         
-#         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
     
-#     def _send_invitation_email(self, client, invitation_link):
-#         """Send invitation email to client admin"""
-#         try:
-#             subject = f"Invitation to Terramo Survey Platform - {client.company_name}"
-#             html_message = render_to_string('emails/client_invitation.html', {
-#                 'client': client,
-#                 'invitation_link': invitation_link,
-#                 'expires_at': client.invitation_expires_at
-#             })
+    def _send_invitation_email(self, client, invitation_link):
+        """Send invitation email to client admin"""
+        try:
+            subject = f"Invitation to Terramo Survey Platform - {client.company_name}"
+            html_message = render_to_string('emails/client_invitation.html', {
+                'client': client,
+                'invitation_link': invitation_link,
+                'expires_at': client.invitation_expires_at
+            })
             
-#             send_mail(
-#                 subject=subject,
-#                 message=f"Click this link to access your dashboard: {invitation_link}",
-#                 from_email=settings.DEFAULT_FROM_EMAIL,
-#                 recipient_list=[client.email],
-#                 html_message=html_message,
-#                 fail_silently=False,
-#             )
-#             logger.info(f"Invitation email sent to {client.email}")
-#         except Exception as e:
-#             logger.error(f"Failed to send invitation email: {str(e)}")
+            send_mail(
+                subject=subject,
+                message=f"Click this link to access your dashboard: {invitation_link}",
+                from_email=settings.DEFAULT_FROM_EMAIL,
+                recipient_list=[client.email],
+                html_message=html_message,
+                fail_silently=False,
+            )
+            logger.info(f"Invitation email sent to {client.email}")
+        except Exception as e:
+            logger.error(f"Failed to send invitation email: {str(e)}")
 
 
-# class ClientLoginView(APIView):
-#     """
-#     Handle Client Admin login via invitation link
-#     """
-#     permission_classes = [permissions.AllowAny]
+class ClientLoginView(APIView):
+    """
+    Handle Client Admin login via invitation link
+    """
+    permission_classes = [permissions.AllowAny]
     
-#     def get(self, request, invitation_token):
-#         """Validate invitation token and redirect to login form"""
-#         try:
-#             client = get_object_or_404(
-#                 Client,
-#                 invitation_token=invitation_token,
-#                 invitation_expires_at__gt=timezone.now()
-#             )
+    def get(self, request, invitation_token):
+        """Validate invitation token and redirect to login form"""
+        try:
+            client = get_object_or_404(
+                Client,
+                invitation_token=invitation_token,
+                invitation_expires_at__gt=timezone.now()
+            )
             
-#             return Response({
-#                 "message": "Valid invitation token",
-#                 "client_id": client.id,
-#                 "company_name": client.company_name,
-#                 "email": client.email
-#             }, status=status.HTTP_200_OK)
+            return Response({
+                "message": "Valid invitation token",
+                "client_id": client.id,
+                "company_name": client.company_name,
+                "email": client.email
+            }, status=status.HTTP_200_OK)
             
-#         except Client.DoesNotExist:
-#             return Response(
-#                 {"error": "Invalid or expired invitation token"},
-#                 status=status.HTTP_404_NOT_FOUND
-#             )
+        except Client.DoesNotExist:
+            return Response(
+                {"error": "Invalid or expired invitation token"},
+                status=status.HTTP_404_NOT_FOUND
+            )
     
-#     def post(self, request, invitation_token):
-#         """Process Client Admin login"""
-#         try:
-#             client = get_object_or_404(
-#                 Client,
-#                 invitation_token=invitation_token,
-#                 invitation_expires_at__gt=timezone.now()
-#             )
+    def post(self, request, invitation_token):
+        """Process Client Admin login"""
+        try:
+            client = get_object_or_404(
+                Client,
+                invitation_token=invitation_token,
+                invitation_expires_at__gt=timezone.now()
+            )
             
-#             serializer = ClientLoginSerializer(data=request.data)
-#             if serializer.is_valid():
-#                 email = serializer.validated_data['email']
+            serializer = ClientLoginSerializer(data=request.data)
+            if serializer.is_valid():
+                email = serializer.validated_data['email']
                 
-#                 # Validate email matches invitation
-#                 if email != client.email:
-#                     return Response(
-#                         {"error": "Email does not match invitation"},
-#                         status=status.HTTP_400_BAD_REQUEST
-#                     )
+                # Validate email matches invitation
+                if email != client.email:
+                    return Response(
+                        {"error": "Email does not match invitation"},
+                        status=status.HTTP_400_BAD_REQUEST
+                    )
                 
-#                 # Get or create user
-#                 user, created = User.objects.get_or_create(
-#                     email=email,
-#                     defaults={
-#                         'username': email,
-#                         'first_name': client.contact_person_first_name or '',
-#                         'last_name': client.contact_person_last_name or '',
-#                         'role': User.UserRole.COMPANY_ADMIN,
-#                         'client': client,
-#                         'is_active': True
-#                     }
-#                 )
+                # Get or create user
+                user, created = User.objects.get_or_create(
+                    email=email,
+                    defaults={
+                        'username': email,
+                        'first_name': client.contact_person_first_name or '',
+                        'last_name': client.contact_person_last_name or '',
+                        'role': User.UserRole.COMPANY_ADMIN,
+                        'client': client,
+                        'is_active': True
+                    }
+                )
                 
-#                 if not created:
-#                     # Update existing user
-#                     user.client = client
-#                     user.role = User.UserRole.COMPANY_ADMIN
-#                     user.is_active = True
-#                     user.save()
+                if not created:
+                    # Update existing user
+                    user.client = client
+                    user.role = User.UserRole.COMPANY_ADMIN
+                    user.is_active = True
+                    user.save()
                 
-#                 # Create default stakeholder group if it doesn't exist
-#                 stakeholder_group, _ = StakeholderGroup.objects.get_or_create(
-#                     client=client,
-#                     name='Management',
-#                     defaults={
-#                         'description': 'Default management stakeholder group',
-#                         'created_by': user,
-#                         'is_active': True
-#                     }
-#                 )
+                # Create default stakeholder group if it doesn't exist
+                stakeholder_group, _ = StakeholderGroup.objects.get_or_create(
+                    client=client,
+                    name='Management',
+                    defaults={
+                        'description': 'Default management stakeholder group',
+                        'created_by': user,
+                        'is_active': True
+                    }
+                )
                 
-#                 # Generate JWT tokens
-#                 refresh = RefreshToken.for_user(user)
+                # Generate JWT tokens
+                refresh = RefreshToken.for_user(user)
                 
-#                 return Response({
-#                     "message": "Login successful",
-#                     "user": UserProfileSerializer(user).data,
-#                     "access_token": str(refresh.access_token),
-#                     "refresh_token": str(refresh),
-#                     "redirect_url": "/dashboard/"
-#                 }, status=status.HTTP_200_OK)
+                return Response({
+                    "message": "Login successful",
+                    "user": UserProfileSerializer(user).data,
+                    "access_token": str(refresh.access_token),
+                    "refresh_token": str(refresh),
+                    "redirect_url": "/dashboard/"
+                }, status=status.HTTP_200_OK)
             
-#             return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+            return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
             
-#         except Client.DoesNotExist:
-#             return Response(
-#                 {"error": "Invalid or expired invitation token"},
-#                 status=status.HTTP_404_NOT_FOUND
-#             )
+        except Client.DoesNotExist:
+            return Response(
+                {"error": "Invalid or expired invitation token"},
+                status=status.HTTP_404_NOT_FOUND
+            )
 
 
-# class GenerateLoginLinkView(APIView):
-#     """
-#     Generate new login link for returning Client Admin
-#     """
-#     permission_classes = [permissions.AllowAny]
+class GenerateLoginLinkView(APIView):
+    """
+    Generate new login link for returning Client Admin
+    """
+    permission_classes = [permissions.AllowAny]
     
-#     def post(self, request):
-#         serializer = GenerateLoginLinkSerializer(data=request.data)
-#         if serializer.is_valid():
-#             email = serializer.validated_data['email']
+    def post(self, request):
+        serializer = GenerateLoginLinkSerializer(data=request.data)
+        if serializer.is_valid():
+            email = serializer.validated_data['email']
             
-#             try:
-#                 # Find user and client
-#                 user = User.objects.get(email=email, role=User.UserRole.COMPANY_ADMIN)
-#                 client = user.client
+            try:
+                # Find user and client
+                user = User.objects.get(email=email, role=User.UserRole.COMPANY_ADMIN)
+                client = user.client
                 
-#                 # Generate new login token
-#                 login_token = str(uuid.uuid4())
-#                 expires_at = timezone.now() + timedelta(hours=24)
+                # Generate new login token
+                login_token = str(uuid.uuid4())
+                expires_at = timezone.now() + timedelta(hours=24)
                 
-#                 # Update client with new token
-#                 client.login_token = login_token
-#                 client.login_expires_at = expires_at
-#                 client.save()
+                # Update client with new token
+                client.login_token = login_token
+                client.login_expires_at = expires_at
+                client.save()
                 
-#                 # Generate login link
-#                 login_link = f"{settings.DOMAIN}/auth/client-login/{login_token}/"
+                # Generate login link
+                login_link = f"{settings.DOMAIN}/auth/client-login/{login_token}/"
                 
-#                 # Send login email
-#                 self._send_login_email(user, login_link)
+                # Send login email
+                self._send_login_email(user, login_link)
                 
-#                 return Response({
-#                     "message": "Login link sent to your email",
-#                     "expires_at": expires_at
-#                 }, status=status.HTTP_200_OK)
+                return Response({
+                    "message": "Login link sent to your email",
+                    "expires_at": expires_at
+                }, status=status.HTTP_200_OK)
                 
-#             except User.DoesNotExist:
-#                 return Response(
-#                     {"error": "No account found with this email"},
-#                     status=status.HTTP_404_NOT_FOUND
-#                 )
+            except User.DoesNotExist:
+                return Response(
+                    {"error": "No account found with this email"},
+                    status=status.HTTP_404_NOT_FOUND
+                )
         
-#         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
     
-#     def _send_login_email(self, user, login_link):
-#         """Send login link email"""
-#         try:
-#             subject = f"Login to Terramo Survey Platform - {user.client.company_name}"
-#             html_message = render_to_string('emails/login_link.html', {
-#                 'user': user,
-#                 'login_link': login_link,
-#                 'expires_at': user.client.login_expires_at
-#             })
+    def _send_login_email(self, user, login_link):
+        """Send login link email"""
+        try:
+            subject = f"Login to Terramo Survey Platform - {user.client.company_name}"
+            html_message = render_to_string('emails/login_link.html', {
+                'user': user,
+                'login_link': login_link,
+                'expires_at': user.client.login_expires_at
+            })
             
-#             send_mail(
-#                 subject=subject,
-#                 message=f"Click this link to access your dashboard: {login_link}",
-#                 from_email=settings.DEFAULT_FROM_EMAIL,
-#                 recipient_list=[user.email],
-#                 html_message=html_message,
-#                 fail_silently=False,
-#             )
-#             logger.info(f"Login link sent to {user.email}")
-#         except Exception as e:
-#             logger.error(f"Failed to send login email: {str(e)}")
+            send_mail(
+                subject=subject,
+                message=f"Click this link to access your dashboard: {login_link}",
+                from_email=settings.DEFAULT_FROM_EMAIL,
+                recipient_list=[user.email],
+                html_message=html_message,
+                fail_silently=False,
+            )
+            logger.info(f"Login link sent to {user.email}")
+        except Exception as e:
+            logger.error(f"Failed to send login email: {str(e)}")
 
 
 # class StakeholderInvitationView(APIView):

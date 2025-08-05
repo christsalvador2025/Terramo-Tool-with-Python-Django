@@ -5,6 +5,11 @@ class IsTerramoAdmin(permissions.BasePermission):
     def has_permission(self, request, view):
         return request.user.is_authenticated and request.user.role in ['super_admin', 'terramo_admin']
 
+class IsClientAdmin(permissions.BasePermission):
+    """Company Admin and Super Admin can access"""
+    def has_permission(self, request, view):
+        return request.user.is_authenticated and request.user.role in ['terramo_admin', 'client_admin']
+
 class IsCompanyAdmin(permissions.BasePermission):
     """Company Admin and Super Admin can access"""
     def has_permission(self, request, view):

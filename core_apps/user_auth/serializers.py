@@ -49,39 +49,40 @@ class UserCreateSerializer(DjoserUserCreateSerializer):
         user = User.objects.create_user(**validated_data)
         return user
     
-# class ClientInvitationSerializer(serializers.ModelSerializer):
-#     """
-#     Serializer for creating client invitations
-#     """
-#     email = serializers.EmailField(required=True)
+from core_apps.clients.models import Client
+class ClientInvitationSerializer(serializers.ModelSerializer):
+    """
+    Serializer for creating client invitations
+    """
+    email = serializers.EmailField(required=True)
     
-#     class Meta:
-#         model = Client
-#         fields = [
-#             'company_name',
-#             'email',
-#             'contact_person_first_name',
-#             'contact_person_last_name',
-#             'phone_number',
-#             'website',
-#             'industry',
-#             'country',
-#             'city',
-#             'address',
-#             'description'
-#         ]
+    class Meta:
+        model = Client
+        fields = [
+            'company_name',
+            'email',
+            'contact_person_first_name',
+            'contact_person_last_name',
+            'phone_number',
+            'website',
+            'industry',
+            'country',
+            'city',
+            'address',
+            'description'
+        ]
         
-#     def validate_email(self, value):
-#         """Validate email is not already used by another client"""
-#         if Client.objects.filter(email=value).exists():
-#             raise serializers.ValidationError("A client with this email already exists")
-#         return value
+    def validate_email(self, value):
+        """Validate email is not already used by another client"""
+        if Client.objects.filter(email=value).exists():
+            raise serializers.ValidationError("A client with this email already exists")
+        return value
     
-#     def validate_company_name(self, value):
-#         """Validate company name is not already used"""
-#         if Client.objects.filter(company_name=value).exists():
-#             raise serializers.ValidationError("A client with this company name already exists")
-#         return value
+    def validate_company_name(self, value):
+        """Validate company name is not already used"""
+        if Client.objects.filter(company_name=value).exists():
+            raise serializers.ValidationError("A client with this company name already exists")
+        return value
 
 
 # class ClientLoginSerializer(serializers.Serializer):
