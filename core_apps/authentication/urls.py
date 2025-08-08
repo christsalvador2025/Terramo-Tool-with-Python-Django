@@ -5,7 +5,8 @@ from .views import (
     ClientAdminTokenLoginView, StakeholderGroupCreateView,
     StakeholderCreateView, StakeholderInvitationAcceptView,
     StakeholderLoginView, StakeholderRegisterView,
-    StakeholderTokenLoginView, LogoutView, StakeholderGroupInvitationAcceptView
+    StakeholderTokenLoginView, LogoutView, StakeholderGroupInvitationAcceptView,
+    StakeholderGroupListCreateView, StakeholderGroupDetailView, StakeholderListView,SendStakeholderInvitationView, InvitationListView,ApproveStakeholderView, RejectStakeholderView, ProcessInvitationView, VerifyEmailView, StakeholderRegistrationView, GetInvitationLinkView
 )
 
 app_name = 'authentication'
@@ -46,4 +47,25 @@ urlpatterns = [
     
     # Universal logout
     path('logout/', LogoutView.as_view(), name='universal-logout'),
+
+
+    # Updated url path for stakeholders
+    # Client Admin URLs
+    # Client Admin endpoints
+    
+    path('client-admin/stakeholders/groups/', StakeholderGroupListCreateView.as_view(), name='group-list-create'),
+    path('client-admin/stakeholders/groups/<uuid:pk>/', StakeholderGroupDetailView.as_view(), name='group-detail'),
+    path('client-admin/stakeholders/groups/<uuid:group_id>/stakeholders/', StakeholderListView.as_view(), name='stakeholder-list'),
+    path('client-admin/stakeholders/groups/<uuid:group_id>/invite/', SendStakeholderInvitationView.as_view(), name='send-invitation'),
+    path('client-admin/stakeholders/invitations/', InvitationListView.as_view(), name='invitation-list'),
+    path('client-admin/stakeholders/invitations/<uuid:pk>/approve/', ApproveStakeholderView.as_view(), name='approve-stakeholder'),
+    path('client-admin/stakeholders/invitations/<uuid:pk>/reject/', RejectStakeholderView.as_view(), name='reject-stakeholder'),
+    
+    # Public invitation endpoints (no auth required)
+    path('stakeholder/invite/<uuid:token>/', ProcessInvitationView.as_view(), name='process-invitation'),
+    path('stakeholder/verify-email/', VerifyEmailView.as_view(), name='verify-email'),
+    path('stakeholder/register/', StakeholderRegistrationView.as_view(), name='register'),
+    
+    # Utility endpoints
+    path('stakeholder/groups/<uuid:group_id>/invitation-link/', GetInvitationLinkView.as_view(), name='get-invitation-link')
 ]

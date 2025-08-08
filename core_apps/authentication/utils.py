@@ -61,3 +61,66 @@ def generate_login_email(first_name: str, login_link: str) -> str:
     Best regards,
     Terramo Team
     """
+
+
+
+ 
+from django.template.loader import render_to_string
+from .models import StakeholderInvitation
+import logging
+from django.utils import timezone
+
+logger = logging.getLogger(__name__)
+def send_stakeholder_invitation_email(invitation):
+    """
+    Utility function to send stakeholder invitation email
+    """
+    try:
+        subject = f"Invitation to join {invitation.stakeholder_group.name}"
+        context = {
+            'group_name': invitation.stakeholder_group.name,
+            'invitation_url': invitation.get_invitation_url(),
+            'company_name': invitation.stakeholder_group.client.company_name,
+        }
+        
+        html_message = render_to_string('emails/stakeholder_invitation.html', context)
+        plain_message = render_to_string('emails/stakeholder_invitation.txt', context)
+        
+        send_mail(
+            subject=subject,
+            message=plain_message,
+            html_message=html_message,
+            from_email=settings.DEFAULT_FROM_EMAIL,
+            recipient_list=[invitation.email],
+            fail_silently=False,
+        )
+        
+        invitation.email_status = 'delivered'
+        invitation.save()
+        
+        logger.info(f"Invitation email sent successfully to {invitation.email}")
+        return True
+        
+    except Exception as e:
+        invitation.email_status = 'failed'
+        invitation.save()
+        
+        logger.error(f"Failed to send invitation email to {invitation.email}: {str(e)}")
+        return False
+
+def cleanup_expired_invitations():
+    """
+    Utility function to cleanup expired invitations
+    """
+    
+    
+    expired_invitations = StakeholderInvitation.objects.filter(
+        expires_at__lt=timezone.now(),
+        status__in=['sent', 'clicked', 'email_verified']
+    )
+    
+    count = expired_invitations.count()
+    expired_invitations.update(status='expired')
+    
+    logger.info(f"Marked {count} invitations as expired")
+    return count

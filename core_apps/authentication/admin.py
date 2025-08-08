@@ -2,10 +2,18 @@ from django.contrib import admin
 from django.contrib.auth.admin import UserAdmin as BaseUserAdmin
 from .models import (
     ClientAdmin, Stakeholder, 
-    StakeholderGroup, InvitationToken, LoginSession
+    StakeholderGroup, InvitationToken, LoginSession, LoginToken, AuthToken
 )
 from core_apps.clients.models import Client
 
+
+@admin.register(LoginToken)
+class LoginTokenAdmin(admin.ModelAdmin):
+    pass
+
+@admin.register(AuthToken)
+class AuthTokenAdmin(admin.ModelAdmin):
+    pass
 # @admin.register(User)
 # class UserAdmin(BaseUserAdmin):
 #     list_display = ('email', 'username', 'role', 'is_active', 'date_joined')

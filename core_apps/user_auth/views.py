@@ -373,9 +373,120 @@ class CustomTokenRefreshView(TokenRefreshView):
             )
 
 
+# class LoginView(APIView):
+#     """
+#     Secure login endpoint with rate limiting and validation
+#     """
+#     permission_classes = [AllowAny]
+#     throttle_classes = [LoginRateThrottle]
+#     serializer_class = LoginSerializer
+    
+#     def post(self, request):
+#         serializer = self.serializer_class(data=request.data)
+        
+#         if not serializer.is_valid():
+#             return Response(
+#                 {'error': 'Invalid input', 'details': serializer.errors}, 
+#                 status=status.HTTP_400_BAD_REQUEST
+#             )
+        
+#         email = serializer.validated_data['email']
+#         password = serializer.validated_data['password']
+        
+#         # Check for brute force attempts
+#         if self._is_brute_force_attempt(email, request):
+#             return Response(
+#                 {'error': 'Too many failed attempts. Please try again later.'}, 
+#                 status=status.HTTP_429_TOO_MANY_REQUESTS
+#             )
+        
+#         # Authenticate user
+#         user = authenticate(request, username=email, password=password)
+        
+#         if user is None:
+#             self._record_failed_attempt(email, request)
+#             logger.warning(f"Failed login attempt for email: {email}")
+#             return Response(
+#                 {'error': 'Invalid credentials'}, 
+#                 status=status.HTTP_401_UNAUTHORIZED
+#             )
+        
+#         if not user.is_active:
+#             return Response(
+#                 {'error': 'User account is disabled'}, 
+#                 status=status.HTTP_401_UNAUTHORIZED
+#             )
+        
+#         # Clear failed attempts on successful login
+#         self._clear_failed_attempts(email, request)
+        
+#         # Generate JWT tokens
+#         refresh = RefreshToken.for_user(user)
+#         access_token = str(refresh.access_token)
+#         refresh_token = str(refresh)
+        
+#         # Update last login
+#         user.last_login = timezone.now()
+#         user.save(update_fields=['last_login'])
+        
+#         # Prepare response data
+#         response_data = {
+#             'message': 'Login successful',
+#             'access': access_token,
+#             'refresh': refresh_token,
+#             'user': {
+#                 'id': user.id,
+#                 'email': user.email,
+#                 'first_name': getattr(user, 'first_name', ''),
+#                 'last_name': getattr(user, 'last_name', ''),
+#                 'is_active': user.is_active,
+#                 'last_login': user.last_login.isoformat() if user.last_login else None,
+#             }
+#         }
+        
+#         response = Response(response_data, status=status.HTTP_200_OK)
+        
+#         # Set authentication cookies
+#         set_auth_cookies(response, access_token, refresh_token)
+        
+#         logger.info(f"User {user.email} logged in successfully")
+        
+#         return response
+    
+#     def _get_client_ip(self, request):
+#         """Get client IP address"""
+#         x_forwarded_for = request.META.get('HTTP_X_FORWARDED_FOR')
+#         if x_forwarded_for:
+#             ip = x_forwarded_for.split(',')[0]
+#         else:
+#             ip = request.META.get('REMOTE_ADDR')
+#         return ip
+    
+#     def _get_cache_key(self, email, request):
+#         """Generate cache key for failed attempts"""
+#         ip = self._get_client_ip(request)
+#         return f"failed_login:{hashlib.md5(f'{email}:{ip}'.encode()).hexdigest()}"
+    
+#     def _is_brute_force_attempt(self, email, request):
+#         """Check if this is a brute force attempt"""
+#         cache_key = self._get_cache_key(email, request)
+#         failed_attempts = cache.get(cache_key, 0)
+#         return failed_attempts >= getattr(settings, 'MAX_LOGIN_ATTEMPTS', 5)
+    
+#     def _record_failed_attempt(self, email, request):
+#         """Record a failed login attempt"""
+#         cache_key = self._get_cache_key(email, request)
+#         failed_attempts = cache.get(cache_key, 0) + 1
+#         cache.set(cache_key, failed_attempts, 300)  # 5 minutes
+    
+#     def _clear_failed_attempts(self, email, request):
+#         """Clear failed login attempts"""
+#         cache_key = self._get_cache_key(email, request)
+#         cache.delete(cache_key)
+
 class LoginView(APIView):
     """
-    Secure login endpoint with rate limiting and validation
+    Secure login endpoint with rate limiting and role-based access for terramo_admin only
     """
     permission_classes = [AllowAny]
     throttle_classes = [LoginRateThrottle]
@@ -400,20 +511,14 @@ class LoginView(APIView):
                 status=status.HTTP_429_TOO_MANY_REQUESTS
             )
         
-        # Authenticate user
-        user = authenticate(request, username=email, password=password)
+        # Get the authenticated user from serializer (includes role validation)
+        user = serializer.validated_data.get('user')
         
         if user is None:
             self._record_failed_attempt(email, request)
             logger.warning(f"Failed login attempt for email: {email}")
             return Response(
-                {'error': 'Invalid credentials'}, 
-                status=status.HTTP_401_UNAUTHORIZED
-            )
-        
-        if not user.is_active:
-            return Response(
-                {'error': 'User account is disabled'}, 
+                {'error': 'Invalid credentials or insufficient permissions'}, 
                 status=status.HTTP_401_UNAUTHORIZED
             )
         
@@ -429,6 +534,9 @@ class LoginView(APIView):
         user.last_login = timezone.now()
         user.save(update_fields=['last_login'])
         
+        # Get user's role for response
+        user_role = self._get_user_role(user)
+        
         # Prepare response data
         response_data = {
             'message': 'Login successful',
@@ -439,6 +547,7 @@ class LoginView(APIView):
                 'email': user.email,
                 'first_name': getattr(user, 'first_name', ''),
                 'last_name': getattr(user, 'last_name', ''),
+                'role': user_role,
                 'is_active': user.is_active,
                 'last_login': user.last_login.isoformat() if user.last_login else None,
             }
@@ -449,9 +558,22 @@ class LoginView(APIView):
         # Set authentication cookies
         set_auth_cookies(response, access_token, refresh_token)
         
-        logger.info(f"User {user.email} logged in successfully")
+        logger.info(f"User {user.email} (role: {user_role}) logged in successfully")
         
         return response
+    
+    def _get_user_role(self, user):
+        """Get user's role - adjust based on your role implementation"""
+        # Option 1: Using Django groups
+        role_group = user.groups.first()
+        return role_group.name if role_group else None
+        
+        # Option 2: If you have a role field
+        # return getattr(user, 'role', None)
+        
+        # Option 3: If you have a separate role model
+        # role = user.roles.first()
+        # return role.name if role else None
     
     def _get_client_ip(self, request):
         """Get client IP address"""
@@ -483,8 +605,7 @@ class LoginView(APIView):
         """Clear failed login attempts"""
         cache_key = self._get_cache_key(email, request)
         cache.delete(cache_key)
-
-
+        
 class LogoutView(APIView):
     """
     Secure logout endpoint that blacklists tokens and clears cookies

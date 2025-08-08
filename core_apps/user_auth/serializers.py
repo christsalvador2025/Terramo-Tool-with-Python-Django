@@ -560,13 +560,54 @@ class UserProfileSerializer(serializers.ModelSerializer):
     
 
 # Serializers for validation
+# class LoginSerializer(serializers.Serializer):
+#     email = serializers.EmailField(required=True)
+#     password = serializers.CharField(required=True, write_only=True, min_length=6)
+    
+#     def validate_email(self, value):
+#         return value.lower().strip()
 class LoginSerializer(serializers.Serializer):
     email = serializers.EmailField(required=True)
     password = serializers.CharField(required=True, write_only=True, min_length=6)
     
     def validate_email(self, value):
         return value.lower().strip()
-
+    
+    def validate(self, attrs):
+        email = attrs.get('email')
+        password = attrs.get('password')
+        
+        if email and password:
+            # First authenticate the user
+            user = authenticate(username=email, password=password)
+            
+            if user is None:
+                raise serializers.ValidationError('Invalid credentials')
+            
+            if not user.is_active:
+                raise serializers.ValidationError('User account is disabled')
+            
+            # Check if user has the required role
+            if not self._has_required_role(user):
+                raise serializers.ValidationError('Access denied. Insufficient permissions.')
+            
+            attrs['user'] = user
+        
+        return attrs
+    
+    def _has_required_role(self, user):
+        """
+        Check if user has terramo_admin role
+        Adjust this method based on how you store roles in your system
+        """
+        # Option 1: If you use Django groups for roles
+        return user.groups.filter(name='terramo_admin').exists()
+        
+        # Option 2: If you have a custom role field on User model
+        # return hasattr(user, 'role') and user.role == 'terramo_admin'
+        
+        # Option 3: If you have a separate role model/relationship
+        # return user.roles.filter(name='terramo_admin').exists()
 
 class LogoutSerializer(serializers.Serializer):
     refresh_token = serializers.CharField(required=False)

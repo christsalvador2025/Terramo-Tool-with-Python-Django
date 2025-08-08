@@ -9,12 +9,150 @@ from django.shortcuts import redirect
 from django.utils.html import format_html
 from django.urls import reverse
 from django.conf import settings
-from .models import Invitation, InvitationStatus, ClientInvitation
+from .models import Invitation, InvitationStatus, ClientInvitation,ClientAdminLoginToken
 from django.template.defaultfilters import date as date_filter
  
+@admin.register(ClientAdminLoginToken)
+class ClientAdminLoginTokenAdmin(admin.ModelAdmin):
+   
+    list_display = [
+        'token_short',
+        # 'user_email',
+        'client_company',
+        'created_at',
+        'expires_at',
+        'is_expired',
+        'is_used',
+        'used_at',
+        'ip_address'
+    ]
+    
+    # list_filter = [
+    #     'is_used',
+    #     'created_at',
+    #     'expires_at',
+    #     'used_at',
+    # ]
+    
+    # search_fields = [
+    #     'user__email',
+    #     'user__first_name',
+    #     'user__last_name',
+    #     'client_invitation__client__company_name',
+    #     'client_invitation__client__email',
+    #     'ip_address',
+    # ]
+    
+    # readonly_fields = [
+    #     'token',
+    #     'created_at',
+    #     'expires_at',
+    #     'used_at',
+    #     'ip_address',
+    #     'user_agent',
+    #     'login_url',
+    #     'is_valid_status'
+    # ]
+    
+    # fieldsets = [
+    #     ('Token Information', {
+    #         'fields': ('token', 'login_url', 'is_valid_status')
+    #     }),
+    #     ('User & Client', {
+    #         'fields': ('user', 'client_invitation')
+    #     }),
+    #     ('Timestamps', {
+    #         'fields': ('created_at', 'expires_at', 'used_at')
+    #     }),
+    #     ('Usage Information', {
+    #         'fields': ('is_used', 'ip_address', 'user_agent')
+    #     }),
+    # ]
+    
+    # ordering = ['-created_at']
+    
+    def token_short(self, obj):
+        """Display shortened token for readability"""
+        return f"{str(obj.token)[:8]}..."
+    token_short.short_description = 'Token'
+    
+    # def user_email(self, obj):
+    #     """Display user email with link to user admin"""
+    #     if obj.user:
+    #         url = reverse('admin:auth_user_change', args=[obj.user.pk])
+    #         return format_html('<a href="{}">{}</a>', url, obj.user.email)
+    #     return '-'
+    # user_email.short_description = 'User Email'
+    
+    def client_company(self, obj):
+        """Display client company name"""
+        if obj.client_invitation and obj.client_invitation.client:
+            return obj.client_invitation.client.company_name
+        return '-'
+    client_company.short_description = 'Company'
+    
+    # def is_expired(self, obj):
+    #     """Show if token is expired"""
+    #     if obj.is_expired():
+    #         return format_html('<span style="color: red;">Expired</span>')
+    #     return format_html('<span style="color: green;">Valid</span>')
+    # is_expired.short_description = 'Status'
+    
+    # def login_url(self, obj):
+    #     """Display the full login URL"""
+    #     if obj.token:
+    #         url = obj.get_login_url()
+    #         return format_html('<a href="{}" target="_blank">{}</a>', url, url)
+    #     return '-'
+    # login_url.short_description = 'Login URL'
+    
+    # def is_valid_status(self, obj):
+    #     """Display detailed validity status"""
+    #     if obj.is_used:
+    #         return format_html('<span style="color: orange;">Used</span>')
+    #     elif obj.is_expired():
+    #         return format_html('<span style="color: red;">Expired</span>')
+    #     else:
+    #         return format_html('<span style="color: green;">Valid</span>')
+    # is_valid_status.short_description = 'Validity Status'
+    
+    # def has_add_permission(self, request):
+    #     """Disable manual creation of tokens"""
+    #     return False
+    
+    # def get_queryset(self, request):
+    #     """Optimize queries"""
+    #     return super().get_queryset(request).select_related(
+    #         'user', 
+    #         'client_invitation',
+    #         'client_invitation__client'
+    #     )
+    
+    # actions = ['mark_as_used', 'delete_expired_tokens']
+    
+    # def mark_as_used(self, request, queryset):
+    #     """Mark selected tokens as used"""
+    #     updated = 0
+    #     for token in queryset.filter(is_used=False):
+    #         token.mark_as_used()
+    #         updated += 1
+        
+    #     self.message_user(request, f'{updated} tokens marked as used.')
+    # mark_as_used.short_description = 'Mark selected tokens as used'
+    
+    # def delete_expired_tokens(self, request, queryset):
+    #     """Delete expired tokens"""
+    #     expired_tokens = queryset.filter(expires_at__lt=timezone.now())
+    #     count = expired_tokens.count()
+    #     expired_tokens.delete()
+        
+    #     self.message_user(request, f'{count} expired tokens deleted.')
+    # delete_expired_tokens.short_description = 'Delete expired tokens'
+
 @admin.register(ClientInvitation)
 class ClientInvitation(admin.ModelAdmin):
     list_display = [
+        "id",
         "client",
         "token",
         "invite_url",

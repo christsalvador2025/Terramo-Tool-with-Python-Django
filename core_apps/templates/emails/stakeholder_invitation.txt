@@ -1,0 +1,18 @@
+You're Invited!
+
+Hello,
+
+You have been invited to join the {{ group_name }} stakeholder group at {{ company_name }}.
+
+To accept this invitation and complete your registration, please visit:
+{{ invitation_url }}
+
+This invitation will expire in 7 days.
+
+If you believe you received this email in error, please ignore it.
+
+Best regards,
+{{ company_name }} Team
+
+---
+This is an automated email. Please do not reply to this message.
