@@ -2,10 +2,14 @@ from django.contrib import admin
 from django.contrib.auth.admin import UserAdmin as BaseUserAdmin
 from .models import (
     ClientAdmin, Stakeholder, 
-    StakeholderGroup, InvitationToken, LoginSession, LoginToken, AuthToken
+    StakeholderGroup, InvitationToken, LoginSession, LoginToken, AuthToken, StakeholderInvitation
 )
 from core_apps.clients.models import Client
 
+
+@admin.register(StakeholderInvitation)
+class StakeholderInvitationAdmin(admin.ModelAdmin):
+    list_display = ('id','email', 'stakeholder_group', 'status', 'email_status', 'expires_at')
 
 @admin.register(LoginToken)
 class LoginTokenAdmin(admin.ModelAdmin):
@@ -63,7 +67,7 @@ class StakeholderGroupAdmin(admin.ModelAdmin):
 
 @admin.register(Stakeholder)
 class StakeholderAdmin(admin.ModelAdmin):
-    list_display = ('email', 'group', 'is_registered', 'created_at', 'last_login')
+    list_display = ('id','email', 'group', 'is_registered', 'created_at', 'last_login')
     list_filter = ('is_registered', 'created_at', 'group__client')
     search_fields = ('email', 'first_name', 'last_name', 'group__name')
 

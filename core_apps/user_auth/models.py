@@ -34,13 +34,13 @@ class User(AbstractUser):
         
     )
     # Client ForeignKey: null=True, blank=True allows Terramo Admins to have no client
-    # client = models.ForeignKey(
-    #     'clients.Client', 
-    #     on_delete=models.CASCADE, 
-    #     null=True,        
-    #     blank=True,       
-    #     related_name='client_users'
-    # )
+    client = models.ForeignKey(
+        'clients.Client', 
+        on_delete=models.CASCADE, 
+        null=True,        
+        blank=True,       
+        related_name='client_users'
+    )
     date_joined = models.DateTimeField(default=timezone.now)
     is_active = models.BooleanField(default=True)
     account_status = models.CharField(

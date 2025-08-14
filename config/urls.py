@@ -34,6 +34,7 @@ urlpatterns = [
     path(f"api/v1/clients/", include("core_apps.clients.urls")),
     path(f"api/v1/products/", include("core_apps.products.urls")),
     path(f"api/v1/authentication/", include("core_apps.authentication.urls")),
+    path("api/v1/esg/", include("core_apps.esg.urls")),
     # path(f"api/v1/clients/", include("core_apps.clients.urls")),
     # path('clients/create/', views.ClientCreateView.as_view(), name='client_create'),
     # path("api/v1/stakeholders/", include("core_apps.companydata.urls")),

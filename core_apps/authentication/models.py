@@ -172,6 +172,7 @@ class Stakeholder(models.Model):
     status = models.CharField(max_length=20, choices=STATUS_CHOICES, default='pending')
     created_at = models.DateTimeField(auto_now_add=True)
     last_login = models.DateTimeField(null=True, blank=True)
+    user = models.OneToOneField(User, on_delete=models.SET_NULL, null=True, blank=True, related_name='usr_stakeholder')
     
     class Meta:
         unique_together = ['email', 'group']
@@ -947,3 +948,132 @@ def cleanup_expired_tokens():
     ).delete()[0]
     
     return deleted_count
+
+
+"""
+AUTHENTICATION FOR STAKEHOLDERS
+"""
+class StakeholderLoginToken(models.Model):
+    """
+    Secure storage for stakeholder login tokens
+    """
+    token = models.UUIDField(
+        default=uuid.uuid4, 
+        unique=True, 
+        editable=False,
+        db_index=True,
+        verbose_name=_('Token')
+    )
+    
+    stakeholder = models.ForeignKey(
+        'Stakeholder',
+        on_delete=models.CASCADE,
+        related_name='login_tokens',
+        verbose_name=_('Stakeholder')
+    )
+    
+    stakeholder_invitation = models.ForeignKey(
+        'StakeholderInvitation',
+        on_delete=models.CASCADE,
+        related_name='login_tokens',
+        null=True,
+        blank=True,
+        verbose_name=_('Stakeholder Invitation')
+    )
+    
+    created_at = models.DateTimeField(
+        auto_now_add=True,
+        verbose_name=_('Created At')
+    )
+    
+    expires_at = models.DateTimeField(
+        verbose_name=_('Expires At')
+    )
+    
+    is_used = models.BooleanField(
+        default=False,
+        verbose_name=_('Is Used')
+    )
+    
+    used_at = models.DateTimeField(
+        null=True,
+        blank=True,
+        verbose_name=_('Used At')
+    )
+    
+    ip_address = models.GenericIPAddressField(
+        null=True,
+        blank=True,
+        verbose_name=_('IP Address')
+    )
+    
+    user_agent = models.TextField(
+        null=True,
+        blank=True,
+        verbose_name=_('User Agent')
+    )
+
+    class Meta:
+        verbose_name = _('Stakeholder Login Token')
+        verbose_name_plural = _('Stakeholder Login Tokens')
+        ordering = ['-created_at']
+        indexes = [
+            models.Index(fields=['token']),
+            models.Index(fields=['stakeholder', 'is_used']),
+            models.Index(fields=['expires_at']),
+        ]
+
+    def __str__(self):
+        return f"Login Token for {self.stakeholder.email} - {'Used' if self.is_used else 'Valid'}"
+
+    def save(self, *args, **kwargs):
+        # Set expiration time (1 hour from creation)
+        if not self.expires_at:
+            self.expires_at = timezone.now() + timedelta(hours=1)
+        super().save(*args, **kwargs)
+
+    def is_valid(self):
+        """Check if token is still valid"""
+        return (
+            not self.is_used and
+            timezone.now() < self.expires_at
+        )
+
+    def is_expired(self):
+        """Check if token has expired"""
+        return timezone.now() >= self.expires_at
+
+    def mark_as_used(self, ip_address=None, user_agent=None):
+        """Mark token as used"""
+        self.is_used = True
+        self.used_at = timezone.now()
+        if ip_address:
+            self.ip_address = ip_address
+        if user_agent:
+            self.user_agent = user_agent
+        self.save(update_fields=['is_used', 'used_at', 'ip_address', 'user_agent'])
+
+    @classmethod
+    def cleanup_expired_tokens(cls):
+        """Remove expired tokens - call this in a cron job"""
+        expired_tokens = cls.objects.filter(expires_at__lt=timezone.now())
+        count = expired_tokens.count()
+        expired_tokens.delete()
+        return count
+
+    @classmethod
+    def get_valid_token(cls, token_uuid):
+        """Get a valid token by UUID"""
+        try:
+            token = cls.objects.select_related('stakeholder', 'stakeholder_invitation').get(
+                token=token_uuid,
+                is_used=False,
+                expires_at__gt=timezone.now()
+            )
+            return token
+        except cls.DoesNotExist:
+            return None
+
+    def get_login_url(self):
+        """Generate the login URL"""
+        return f"{settings.FRONTEND_DOMAIN_URL}/stakeholder/login/{self.token}/"

@@ -1,7 +1,8 @@
 from rest_framework import status, generics, permissions
-from rest_framework.decorators import api_view, permission_classes
+from rest_framework.decorators import api_view, permission_classes, authentication_classes
 from rest_framework.response import Response
 from rest_framework.views import APIView
+from rest_framework.generics import ListAPIView, UpdateAPIView
 from rest_framework_simplejwt.tokens import RefreshToken
 from django.contrib.auth import authenticate
 from django.utils import timezone
@@ -1403,20 +1404,21 @@ class GetInvitationLinkView(APIView):
 
 class ProcessInvitationView(APIView):
     """Process invitation link click - Public endpoint"""
+    authentication_classes = []  # Disable JWT/session authentication
     permission_classes = [permissions.AllowAny]
-    
-    def get(self, request, token):
+
+    def get(self, request, token):  # Matches <str:token> in urls.py
         try:
             # Try to find invitation by token
             try:
                 invitation = StakeholderInvitation.objects.get(invitation_token=token)
             except StakeholderInvitation.DoesNotExist:
-                # Try to find by group invitation token (for multi-use links)
+                # Try group invitation
                 try:
                     group = StakeholderGroup.objects.get(invitation_token=token, is_active=True)
-                    # For multi-use group invitations, we'll need email to proceed
                     return Response({
                         'type': 'group_invitation',
+                        'group_id': group.id,
                         'group_name': group.name,
                         'company_name': group.client.company_name,
                         'requires_email': True,
@@ -1424,22 +1426,21 @@ class ProcessInvitationView(APIView):
                     })
                 except StakeholderGroup.DoesNotExist:
                     raise NotFound("Invalid invitation link")
-            
-            # Check if invitation expired
+
+            # Check expiration
             if invitation.is_expired:
                 return Response(
                     {'error': 'This invitation has expired'},
                     status=status.HTTP_410_GONE
                 )
-            
-            # Update invitation status based on current state
-            now = timezone.now()
+
+            # Update status if first click
             if invitation.status == 'sent':
                 invitation.status = 'clicked'
-                invitation.clicked_at = now
+                invitation.clicked_at = timezone.now()
                 invitation.save(update_fields=['status', 'clicked_at'])
-            
-            # Determine next step based on current status
+
+            # Return response based on current status
             if invitation.status == 'clicked':
                 return Response({
                     'type': 'email_verification',
@@ -1460,9 +1461,11 @@ class ProcessInvitationView(APIView):
                     'type': 'completed',
                     'message': 'Registration already completed for this invitation'
                 })
-            
+
+        except NotFound:
+            raise
         except Exception as e:
-            logger.error(f"Error processing invitation {token}: {str(e)}")
+            logger.error(f"Error processing invitation {token}: {str(e)}", exc_info=True)
             return Response(
                 {'error': 'Failed to process invitation'},
                 status=status.HTTP_500_INTERNAL_SERVER_ERROR
@@ -1470,6 +1473,7 @@ class ProcessInvitationView(APIView):
 
 class VerifyEmailView(APIView):
     """Verify email for invitation - Public endpoint"""
+    authentication_classes = [] 
     permission_classes = [permissions.AllowAny]
     
     def post(self, request):
@@ -1489,61 +1493,61 @@ class VerifyEmailView(APIView):
             'token': str(invitation.invitation_token)
         })
 
-class StakeholderRegistrationView(APIView):
-    """Complete stakeholder registration - Public endpoint"""
-    permission_classes = [permissions.AllowAny]
+# class StakeholderRegistrationView(APIView):
+#     """Complete stakeholder registration - Public endpoint"""
+#     permission_classes = [permissions.AllowAny]
     
-    def post(self, request):
-        serializer = StakeholderRegistrationDataSerializer(data=request.data)
-        serializer.is_valid(raise_exception=True)
+#     def post(self, request):
+#         serializer = StakeholderRegistrationDataSerializer(data=request.data)
+#         serializer.is_valid(raise_exception=True)
         
-        invitation = serializer.validated_data['invitation']
+#         invitation = serializer.validated_data['invitation']
         
-        try:
-            with transaction.atomic():
-                # Create or update stakeholder
-                stakeholder, created = Stakeholder.objects.get_or_create(
-                    email=invitation.email,
-                    group=invitation.stakeholder_group,
-                    defaults={
-                        'first_name': serializer.validated_data['first_name'],
-                        'last_name': serializer.validated_data['last_name'],
-                        'is_registered': True,
-                        'status': 'pending'  # Pending client admin approval
-                    }
-                )
+#         try:
+#             with transaction.atomic():
+#                 # Create or update stakeholder
+#                 stakeholder, created = Stakeholder.objects.get_or_create(
+#                     email=invitation.email,
+#                     group=invitation.stakeholder_group,
+#                     defaults={
+#                         'first_name': serializer.validated_data['first_name'],
+#                         'last_name': serializer.validated_data['last_name'],
+#                         'is_registered': True,
+#                         'status': 'pending'  # Pending client admin approval
+#                     }
+#                 )
                 
-                if not created:
-                    # Update existing stakeholder
-                    stakeholder.first_name = serializer.validated_data['first_name']
-                    stakeholder.last_name = serializer.validated_data['last_name']
-                    stakeholder.is_registered = True
-                    stakeholder.status = 'pending'
-                    stakeholder.save()
+#                 if not created:
+#                     # Update existing stakeholder
+#                     stakeholder.first_name = serializer.validated_data['first_name']
+#                     stakeholder.last_name = serializer.validated_data['last_name']
+#                     stakeholder.is_registered = True
+#                     stakeholder.status = 'pending'
+#                     stakeholder.save()
                 
-                # Update invitation
-                invitation.status = 'completed'
-                invitation.completed_at = timezone.now()
-                invitation.stakeholder = stakeholder
-                invitation.save(update_fields=['status', 'completed_at', 'stakeholder'])
+#                 # Update invitation
+#                 invitation.status = 'completed'
+#                 invitation.completed_at = timezone.now()
+#                 invitation.stakeholder = stakeholder
+#                 invitation.save(update_fields=['status', 'completed_at', 'stakeholder'])
                 
-                logger.info(
-                    f"Stakeholder registration completed: {stakeholder.email} "
-                    f"for group '{invitation.stakeholder_group.name}'"
-                )
+#                 logger.info(
+#                     f"Stakeholder registration completed: {stakeholder.email} "
+#                     f"for group '{invitation.stakeholder_group.name}'"
+#                 )
         
-        except Exception as e:
-            logger.error(f"Registration failed for {invitation.email}: {str(e)}")
-            return Response(
-                {'error': 'Registration failed. Please try again.'},
-                status=status.HTTP_500_INTERNAL_SERVER_ERROR
-            )
+#         except Exception as e:
+#             logger.error(f"Registration failed for {invitation.email}: {str(e)}")
+#             return Response(
+#                 {'error': 'Registration failed. Please try again.'},
+#                 status=status.HTTP_500_INTERNAL_SERVER_ERROR
+#             )
         
-        return Response({
-            'message': 'Registration completed successfully',
-            'status': 'pending_approval',
-            'stakeholder_id': stakeholder.id
-        }, status=status.HTTP_201_CREATED)
+#         return Response({
+#             'message': 'Registration completed successfully',
+#             'status': 'pending_approval',
+#             'stakeholder_id': stakeholder.id
+#         }, status=status.HTTP_201_CREATED)
 
 # Client Admin Approval Views
 
@@ -1611,3 +1615,862 @@ class RejectStakeholderView(APIView):
 """
 Updated: Stakeholders Aug. 07, 2025 -- END --
 """
+# from .serializers import InvitationValidateSerializer, EmailRequestVerificationSerializer
+# class ValidateInvitationView(generics.GenericAPIView):
+#     serializer_class = InvitationValidateSerializer
+#     permission_classes = [AllowAny]
+
+#     def post(self, request, *args, **kwargs):
+#         serializer = self.get_serializer(data=request.data)
+#         serializer.is_valid(raise_exception=True)
+
+#         invitation = serializer.validated_data['invitation']
+#         data = {
+#             "type": "group_invitation",
+#             "group_id": str(invitation.stakeholder_group.id),
+#             "group_name": invitation.stakeholder_group.name,
+#             "company_name": invitation.stakeholder_group.company.name,
+#             "requires_email": True,  # Could be dynamic
+#             "token": str(invitation.invitation_token)
+#         }
+#         return Response(data)
+
+
+# class VerifyEmailInvitationView(generics.GenericAPIView):
+#     serializer_class = EmailRequestVerificationSerializer
+#     permission_classes = [AllowAny]
+
+#     def post(self, request, *args, **kwargs):
+#         serializer = self.get_serializer(data=request.data)
+#         serializer.is_valid(raise_exception=True)
+#         stakeholder = serializer.save()
+
+#         if stakeholder.is_registered and stakeholder.user:
+#             # Auto-login
+#             login(request, stakeholder.user)
+#             return Response({"detail": "Login successful"}, status=status.HTTP_200_OK)
+
+#         return Response({
+#             "detail": "Email verified, proceed to registration",
+#             "stakeholder_id": stakeholder.id
+#         }, status=status.HTTP_200_OK)
+
+
+# class StakeholderInvitationValidateView(APIView):
+#     def get(self, request, token):
+#         invitation = get_object_or_404(StakeholderInvitation, invitation_token=token)
+        
+#         if invitation.is_expired:
+#             return Response({"error": "Invitation expired."}, status=status.HTTP_400_BAD_REQUEST)
+
+#         return Response({
+#             "type": "group_invitation",
+#             "group_id": invitation.stakeholder_group.id,
+#             "group_name": invitation.stakeholder_group.name,
+#             "company_name": invitation.stakeholder_group.company.name,
+#             "requires_email": True,
+#             "token": str(invitation.invitation_token)
+#         })
+
+from .serializers import InvitationValidationSerializer, EmailSubmissionSerializer, UpdatedStakeholderSerializer, StakeholderApprovalSerializer
+class ValidateInvitationView(APIView):
+    """Validate invitation token and return group details"""
+    authentication_classes = []
+    permission_classes = [AllowAny]
+    
+    def post(self, request):
+        serializer = InvitationValidationSerializer(data=request.data)
+        if serializer.is_valid():
+            token = serializer.validated_data['token']
+            
+            try:
+                stakeholder_group = StakeholderGroup.objects.get(
+                    invitation_token=token,
+                    is_active=True
+                )
+                
+                response_data = {
+                    "type": "group_invitation",
+                    "group_id": str(stakeholder_group.id),
+                    "group_name": stakeholder_group.name,
+                    "company_name": stakeholder_group.client.company_name,
+                    "requires_email": True,
+                    "token": str(token)
+                }
+                
+                return Response(response_data, status=status.HTTP_200_OK)
+            
+            except StakeholderGroup.DoesNotExist:
+                return Response(
+                    {"error": "Invalid or expired invitation token"},
+                    status=status.HTTP_400_BAD_REQUEST
+                )
+            
+            except Exception as e:
+                # Log the error for debugging
+                import logging
+                logger = logging.getLogger(__name__)
+                logger.exception("Unexpected error while validating invitation token")
+                
+                return Response(
+                    {"error": "An unexpected error occurred. Please try again later."},
+                    status=status.HTTP_500_INTERNAL_SERVER_ERROR
+                )
+        
+        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
+class SubmitEmailView(APIView):
+    """Handle email submission for invitation"""
+    authentication_classes = []
+    permission_classes = [AllowAny]
+    
+    def post(self, request):
+        serializer = EmailSubmissionSerializer(data=request.data)
+        if serializer.is_valid():
+            email = serializer.validated_data['email']
+            stakeholder_group = serializer.validated_data['stakeholder_group']
+            existing_stakeholder = serializer.validated_data['existing_stakeholder']
+            
+            if existing_stakeholder:
+                if existing_stakeholder.is_registered:
+                    # Stakeholder exists and is registered - auto login
+                    if existing_stakeholder.user:
+                        # Update last login
+                        existing_stakeholder.last_login = timezone.now()
+                        existing_stakeholder.save()
+                        
+                        return Response({
+                            "action": "auto_login",
+                            "message": "Welcome back! You have been logged in automatically.",
+                            "stakeholder_id": str(existing_stakeholder.id),
+                            "redirect_url": "/stakeholder/dashboard/"
+                        }, status=status.HTTP_200_OK)
+                else:
+                    # Stakeholder exists but not registered - redirect to registration
+                    return Response({
+                        "action": "complete_registration",
+                        "message": "Please complete your registration.",
+                        "email": email,
+                        "token": str(serializer.validated_data['token']),
+                        "redirect_url": "/stakeholder/register/"
+                    }, status=status.HTTP_200_OK)
+            else:
+                # New stakeholder - create and redirect to registration
+                stakeholder = Stakeholder.objects.create(
+                    email=email,
+                    group=stakeholder_group,
+                    is_registered=False,
+                    status='pending'
+                )
+                
+                # Create or update stakeholder invitation
+                invitation, created = StakeholderInvitation.objects.get_or_create(
+                    email=email,
+                    stakeholder_group=stakeholder_group,
+                    defaults={
+                        'invitation_token': serializer.validated_data['token'],
+                        'status': 'clicked',
+                        'clicked_at': timezone.now(),
+                        'expires_at': timezone.now() + timezone.timedelta(days=7),
+                        'sent_by': stakeholder_group.created_by,
+                        'stakeholder': stakeholder
+                    }
+                )
+                
+                if not created:
+                    invitation.status = 'clicked'
+                    invitation.clicked_at = timezone.now()
+                    invitation.stakeholder = stakeholder
+                    invitation.save()
+                
+                return Response({
+                    "action": "register",
+                    "message": "Please complete your registration.",
+                    "email": email,
+                    # "token": str(serializer.validated_data['token']),
+                    "token" : str(stakeholder.id),
+                    "redirect_url": "/stakeholder/register/"
+                }, status=status.HTTP_201_CREATED)
+        
+        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
+
+# class StakeholderRegistrationView(APIView):
+#     """Handle stakeholder registration"""
+#     authentication_classes = []
+#     permission_classes = [AllowAny]
+    
+#     def post(self, request):
+#         serializer = StakeholderRegistrationSerializer(data=request.data)
+#         if serializer.is_valid():
+#             stakeholder = serializer.save()
+            
+#             return Response({
+#                 "message": "Registration completed successfully. Please wait for admin approval.",
+#                 "stakeholder_id": str(stakeholder.id),
+#                 "status": "pending_approval",
+#                 "redirect_url": "/stakeholder/pending/"
+#             }, status=status.HTTP_201_CREATED)
+        
+#         print(f"serializer.errors - {serializer.errors}")
+#         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
+class StakeholderRegistrationView(APIView):
+    """Handle stakeholder registration via invitation link."""
+    authentication_classes = []
+    permission_classes = [AllowAny]
+    print(f"---- hit ---")
+    def post(self, request):
+        serializer = StakeholderRegistrationSerializer(data=request.data)
+        if serializer.is_valid():
+            stakeholder = serializer.save()
+            return Response({
+                "message": "Registration completed successfully. Please wait for admin approval.",
+                "stakeholder_id": str(stakeholder.id),
+                "status": "pending_approval",
+                "redirect_url": "/stakeholder/pending/"
+            }, status=status.HTTP_201_CREATED)
+        print(f"request.data -> {request.data}")
+        return Response({
+            "errorssss": "Invalid input",
+            "detailssss": serializer.errors
+        }, status=status.HTTP_400_BAD_REQUEST)
+    
+# class StakeholderApprovalView(UpdateAPIView):
+#     """Client admin approval of stakeholders"""
+#     permission_classes = [IsAuthenticated]
+#     queryset = Stakeholder.objects.all()
+#     serializer_class = StakeholderApprovalSerializer
+    
+#     lookup_field = 'id'
+    
+#     def get_queryset(self):
+#         # Filter stakeholders based on client admin's client
+#         user = self.request.user
+#         if hasattr(user, 'client') and user.client:
+#             return Stakeholder.objects.filter(group__client=user.client)
+#         return Stakeholder.objects.none()
+    
+#     def update(self, request, *args, **kwargs):
+#         response = super().update(request, *args, **kwargs)
+        
+#         if response.status_code == status.HTTP_200_OK:
+#             stakeholder = self.get_object()
+#             action = request.data.get('status')
+            
+#             if action == 'approved':
+#                 # You might want to send approval email here
+#                 response.data.update({
+#                     "message": f"Stakeholder {stakeholder.email} has been approved and can now access the system.",
+#                     "user_created": True
+#                 })
+#             else:
+#                 response.data.update({
+#                     "message": f"Stakeholder {stakeholder.email} has been rejected."
+#                 })
+        
+#         return response
+class StakeholderApprovalView(UpdateAPIView):
+    """Client admin approval of stakeholders"""
+    queryset = Stakeholder.objects.all()
+    serializer_class = StakeholderApprovalSerializer
+    permission_classes = [IsAuthenticated]
+    lookup_field = 'id'
+    
+    def get_queryset(self):
+        # Filter stakeholders based on client admin's client
+        user = self.request.user
+        if hasattr(user, 'client') and user.client:
+            return Stakeholder.objects.filter(group__client=user.client)
+        return Stakeholder.objects.none()
+    
+    def update(self, request, *args, **kwargs):
+        response = super().update(request, *args, **kwargs)
+        
+        if response.status_code == status.HTTP_200_OK:
+            stakeholder = self.get_object()
+            action = request.data.get('status')
+            
+            if action == 'approved':
+                # Count ESG responses created
+                esg_count = 0
+                if stakeholder.user:
+                    esg_count = stakeholder.user.user_esg_responses.count()
+                
+                response.data.update({
+                    "message": f"Stakeholder {stakeholder.email} has been approved and can now access the system.",
+                    "user_created": True,
+                    "esg_responses_created": esg_count
+                })
+            else:
+                response.data.update({
+                    "message": f"Stakeholder {stakeholder.email} has been rejected."
+                })
+        
+        return response
+
+
+class PendingStakeholdersView(ListAPIView):
+    """List pending stakeholders for client admin approval"""
+    serializer_class = UpdatedStakeholderSerializer
+    permission_classes = [IsAuthenticated]
+    
+    def get_queryset(self):
+        user = self.request.user
+        if hasattr(user, 'client') and user.client:
+            return Stakeholder.objects.filter(
+                group__client=user.client,
+                status='pending',
+                is_registered=False
+            ).order_by('-created_at')
+        return Stakeholder.objects.none()
+
+
+class StakeholderDetailView(APIView):
+    """Get stakeholder details"""
+    permission_classes = [IsAuthenticated]
+    
+    def get(self, request, stakeholder_id):
+        try:
+            stakeholder = Stakeholder.objects.get(id=stakeholder_id)
+            
+            # Check if user has permission to view this stakeholder
+            if hasattr(request.user, 'client') and request.user.client:
+                if stakeholder.group.client != request.user.client:
+                    return Response(
+                        {"error": "Permission denied"}, 
+                        status=status.HTTP_403_FORBIDDEN
+                    )
+            
+            serializer = UpdatedStakeholderSerializer(stakeholder)
+            return Response(serializer.data, status=status.HTTP_200_OK)
+            
+        except Stakeholder.DoesNotExist:
+            return Response(
+                {"error": "Stakeholder not found"}, 
+                status=status.HTTP_404_NOT_FOUND
+            )
+
+
+class StakeholderLoginStatusView(APIView):
+    """Update stakeholder login status"""
+    permission_classes = [IsAuthenticated]
+    
+    def post(self, request):
+        if hasattr(request.user, 'stakeholder'):
+            stakeholder = request.user.stakeholder
+            stakeholder.last_login = timezone.now()
+            stakeholder.save()
+            
+            return Response({
+                "message": "Login status updated",
+                "last_login": stakeholder.last_login
+            }, status=status.HTTP_200_OK)
+        
+        return Response(
+            {"error": "User is not associated with a stakeholder"}, 
+            status=status.HTTP_400_BAD_REQUEST
+        )
+    
+
+from core_apps.authentication.models import StakeholderInvitation
+@method_decorator(never_cache, name='dispatch')
+class StakeholderRequestLoginView(APIView):
+    """Handle login link requests for existing stakeholders"""
+    
+    permission_classes = [permissions.AllowAny]
+    throttle_classes = [AnonRateThrottle]
+    
+    def get_client_ip(self, request):
+        """Get client IP address"""
+        x_forwarded_for = request.META.get('HTTP_X_FORWARDED_FOR')
+        if x_forwarded_for:
+            ip = x_forwarded_for.split(',')[0]
+        else:
+            ip = request.META.get('REMOTE_ADDR')
+        return ip
+    
+    def post(self, request):
+        """Send login link to registered client admin"""
+        try:
+            # Get email from request
+            email = request.data.get('email', '').lower().strip()
+            
+            logger.info(f"Login request received for email: {email}")
+            
+            if not email:
+                return Response({
+                    "error": "Email is required"
+                }, status=status.HTTP_400_BAD_REQUEST)
+            
+            # Basic email validation
+            if '@' not in email:
+                return Response({
+                    "error": "Please enter a valid email address"
+                }, status=status.HTTP_400_BAD_REQUEST)
+            
+            # Check if client invitation exists for this email
+            try:
+                invitation = StakeholderInvitation.objects.get(
+                    email=email,
+               
+                )
+                 
+                
+                client = invitation.client
+                
+                # Check registration and acceptance status
+                invitation_status = invitation.status
+                is_accepted = invitation.is_accepted
+                
+                # Check registration and acceptance status
+                if invitation_status != 'completed':
+                    if is_accepted:
+                        logger.info(f"Email verification required for {email}")
+                        return Response({
+                            "error": "Please verify your email first. Click the invitation link sent to your email to complete registration.",
+                            "status": "email_verification_required"
+                        }, status=status.HTTP_400_BAD_REQUEST)
+                    else:
+                        logger.info(f"Invitation pending for {email}")
+                        return Response({
+                            "error": "Please check your email for the invitation link or contact your administrator if you haven't received it.",
+                            "status": "invitation_pending"
+                        }, status=status.HTTP_400_BAD_REQUEST)
+                
+                elif not is_accepted:
+                    logger.info(f"Acceptance pending for {email}")
+                    return Response({
+                        "error": "Please check your email for the invitation link and accept it to complete your account setup.",
+                        "status": "acceptance_pending"
+                    }, status=status.HTTP_400_BAD_REQUEST)
+                
+                # User is both email_verified and is_accepted - proceed with login
+                elif email_verified and is_accepted:
+                    logger.info(f"Proceeding with login for {email}")
+                    
+                    # Check if user account exists
+                    try:
+                        user = User.objects.get(email=email, is_active=True)
+                        logger.info(f"User account found for {email}")
+                    except User.DoesNotExist:
+                        logger.error(f"User account not found for {email}")
+                        return Response({
+                            "error": "User account not found. Please contact your administrator.",
+                            "status": "user_not_found"
+                        }, status=status.HTTP_404_NOT_FOUND)
+                    
+                    # Invalidate any existing unused tokens for this user (optional security measure)
+                    ClientAdminLoginToken.objects.filter(
+                        user=user,
+                        is_used=False
+                    ).update(is_used=True, used_at=timezone.now())
+                    
+                    # Create new login token
+                    login_token_obj = ClientAdminLoginToken.objects.create(
+                        user=user,
+                        client_invitation=invitation,
+                        ip_address=self.get_client_ip(request),
+                        user_agent=request.META.get('HTTP_USER_AGENT', '')[:500]  # Limit length
+                    )
+                    
+                    login_url = login_token_obj.get_login_url()
+                    logger.info(f"Generated login token for {email}: {login_token_obj.token}")
+                    
+                    # Get user's name for email
+                    user_name = user.first_name or client.contact_person_first_name
+                    
+                    # Generate login email
+                    subject = f"Login Link - {client.company_name}"
+                    message = generate_login_email(user_name, login_url)
+                    
+                    # Send email
+                    try:
+                        send_mail(
+                            subject=subject,
+                            message=message,
+                            from_email=settings.DEFAULT_FROM_EMAIL,
+                            recipient_list=[email],
+                            fail_silently=False,
+                        )
+                        
+                        logger.info(f"Login link sent successfully to {email}")
+                        
+                        return Response({
+                            "message": "Login link has been sent to your email address. Please check your email and click the link to access your account. The link will expire in 1 hour.",
+                            "success": True,
+                            "status": "login_link_sent"
+                        }, status=status.HTTP_200_OK)
+                        
+                    except Exception as e:
+                        logger.error(f"Failed to send login email to {email}: {e}")
+                        # Mark token as used since email failed
+                        login_token_obj.mark_as_used()
+                        return Response({
+                            "error": "Failed to send email. Please try again later.",
+                            "status": "email_send_failed"
+                        }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+                
+                else:
+                    logger.error(f"Unexpected state for {email}: verified={email_verified}, accepted={is_accepted}")
+                    return Response({
+                        "error": "Account status unclear. Please contact your administrator.",
+                        "status": "status_unclear"
+                    }, status=status.HTTP_400_BAD_REQUEST)
+                
+            except ClientInvitation.DoesNotExist:
+                logger.warning(f"No invitation found for {email}")
+                return Response({
+                    "error": "No invitation found for this email address. Please contact your administrator.",
+                    "status": "invitation_not_found"
+                }, status=status.HTTP_404_NOT_FOUND)
+            except Exception as invitation_error:
+                logger.error(f"Error finding invitation for {email}: {invitation_error}")
+                print(f"invitation_error => {invitation_error}")
+                return Response({
+                    "error": "Error processing your request. Please try again later. yow?",
+                    "status": "invitation_error"
+                }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+            
+        except Exception as e:
+            logger.error(f"Unexpected error in request login for {request.data.get('email', 'unknown')}: {e}")
+            import traceback
+            logger.error(f"Full traceback: {traceback.format_exc()}")
+            return Response({
+                "error": "An unexpected error occurred while processing your request. Please try again later.",
+                "status": "server_error"
+            }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+        
+
+
+"""
+AUTHENTICATION FOR STAKEHOLDER
+"""
+def generate_stakeholder_login_email(stakeholder_name, login_url, group_name):
+    """Generate email content for stakeholder login"""
+    return f"""
+Hello {stakeholder_name},
+
+You've requested a login link for your stakeholder account in {group_name}.
+
+Click the link below to access your account:
+{login_url}
+
+This link will expire in 1 hour for security purposes.
+
+If you didn't request this login link, please ignore this email.
+
+Best regards,
+Terramo Team
+    """.strip()
+
+from .models import StakeholderLoginToken
+
+@method_decorator(never_cache, name='dispatch')
+class StakeholderLoginRequestView(APIView):
+    """Handle login link requests for stakeholders"""
+    authentication_classes = []
+    permission_classes = [permissions.AllowAny]
+    throttle_classes = [AnonRateThrottle]
+    
+    def get_client_ip(self, request):
+        """Get client IP address"""
+        x_forwarded_for = request.META.get('HTTP_X_FORWARDED_FOR')
+        if x_forwarded_for:
+            ip = x_forwarded_for.split(',')[0]
+        else:
+            ip = request.META.get('REMOTE_ADDR')
+        return ip
+    
+    def post(self, request):
+        """Send login link to registered stakeholder"""
+        try:
+            # Get email from request
+            email = request.data.get('email', '').lower().strip()
+            
+            logger.info(f"Stakeholder login request received for email: {email}")
+            
+            if not email:
+                return Response({
+                    "error": "Email is required"
+                }, status=status.HTTP_400_BAD_REQUEST)
+            
+            # Basic email validation
+            if '@' not in email:
+                return Response({
+                    "error": "Please enter a valid email address"
+                }, status=status.HTTP_400_BAD_REQUEST)
+            
+            # Check if stakeholder exists
+            try:
+                stakeholder = Stakeholder.objects.select_related('group').get(
+                    email=email,
+                    status='approved',  # Only approved stakeholders can login
+                    is_registered=True  # Only registered stakeholders can login
+                )
+                
+                logger.info(f"Found stakeholder for {email}: group={stakeholder.group.name}")
+                
+                # Check if stakeholder has a User account (if using User model)
+                if stakeholder.user and not stakeholder.user.is_active:
+                    logger.warning(f"User account inactive for {email}")
+                    return Response({
+                        "error": "Your account is inactive. Please contact your administrator.",
+                        "status": "account_inactive"
+                    }, status=status.HTTP_400_BAD_REQUEST)
+                
+                # Invalidate any existing unused tokens for this stakeholder
+                StakeholderLoginToken.objects.filter(
+                    stakeholder=stakeholder,
+                    is_used=False
+                ).update(is_used=True, used_at=timezone.now())
+                
+                # Get the latest invitation for this stakeholder (optional)
+                stakeholder_invitation = None
+                try:
+                    stakeholder_invitation = StakeholderInvitation.objects.filter(
+                        email=email,
+                        stakeholder_group=stakeholder.group
+                    ).order_by('-sent_at').first()
+                except StakeholderInvitation.DoesNotExist:
+                    pass
+                
+                # Create new login token
+                login_token_obj = StakeholderLoginToken.objects.create(
+                    stakeholder=stakeholder,
+                    stakeholder_invitation=stakeholder_invitation,
+                    ip_address=self.get_client_ip(request),
+                    user_agent=request.META.get('HTTP_USER_AGENT', '')[:500]
+                )
+                
+                login_url = login_token_obj.get_login_url()
+                logger.info(f"Generated login token for {email}: {login_token_obj.token}")
+                
+                # Get stakeholder's name for email
+                stakeholder_name = stakeholder.first_name or stakeholder.email.split('@')[0]
+                group_name = stakeholder.group.name
+                
+                # Generate login email
+                subject = f"Login Link - {group_name}"
+                message = generate_stakeholder_login_email(stakeholder_name, login_url, group_name)
+                
+                # Send email
+                try:
+                    send_mail(
+                        subject=subject,
+                        message=message,
+                        from_email=settings.DEFAULT_FROM_EMAIL,
+                        recipient_list=[email],
+                        fail_silently=False,
+                    )
+                    
+                    logger.info(f"Login link sent successfully to {email}")
+                    
+                    return Response({
+                        "message": "Login link has been sent to your email address. Please check your email and click the link to access your account. The link will expire in 1 hour.",
+                        "success": True,
+                        "status": "login_link_sent"
+                    }, status=status.HTTP_200_OK)
+                    
+                except Exception as e:
+                    logger.error(f"Failed to send login email to {email}: {e}")
+                    # Mark token as used since email failed
+                    login_token_obj.mark_as_used()
+                    return Response({
+                        "error": "Failed to send email. Please try again later.",
+                        "status": "email_send_failed"
+                    }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+                
+            except Stakeholder.DoesNotExist:
+                logger.warning(f"No approved/registered stakeholder found for {email}")
+                return Response({
+                    "error": "No registered stakeholder account found for this email address. Please contact your administrator or check if you need to complete your registration first.",
+                    "status": "stakeholder_not_found"
+                }, status=status.HTTP_404_NOT_FOUND)
+            
+        except Exception as e:
+            logger.error(f"Unexpected error in stakeholder login request for {request.data.get('email', 'unknown')}: {e}")
+            print(f"last except - {e}")
+            import traceback
+            logger.error(f"Full traceback: {traceback.format_exc()}")
+            return Response({
+                "error": "An unexpected error occurred while processing your request. Please try again later.",
+                "status": "server_error"
+            }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+        
+
+"""
+Verify the Stakeholder token
+"""
+from core_apps.user_auth.models import User as UserData
+@method_decorator(never_cache, name='dispatch')
+class StakeholderUserTokenLoginView(APIView):
+    """Handle stakeholder login via token"""
+    authentication_classes = []
+    permission_classes = [permissions.AllowAny]
+    
+    def get_client_ip(self, request):
+        """Get client IP address"""
+        x_forwarded_for = request.META.get('HTTP_X_FORWARDED_FOR')
+        if x_forwarded_for:
+            ip = x_forwarded_for.split(',')[0]
+        else:
+            ip = request.META.get('REMOTE_ADDR')
+        return ip
+    
+    def post(self, request, token):
+        """Verify token and log in stakeholder"""
+        try:
+            logger.info(f"Token login attempt: {token}")
+            
+            # Get the token
+            login_token = StakeholderLoginToken.get_valid_token(token)
+            
+            if not login_token:
+                logger.warning(f"Invalid or expired token: {token}")
+                return Response({
+                    "error": "Invalid or expired login link. Please request a new login link.",
+                    "status": "invalid_token"
+                }, status=status.HTTP_400_BAD_REQUEST)
+            
+            stakeholder = login_token.stakeholder
+            
+            # Check if stakeholder is still active and approved
+            if stakeholder.status != 'approved' or not stakeholder.is_registered:
+                logger.warning(f"Stakeholder status invalid: {stakeholder.email}")
+                login_token.mark_as_used()
+                return Response({
+                    "error": "Your account status has changed. Please contact your administrator.",
+                    "status": "account_status_changed"
+                }, status=status.HTTP_403_FORBIDDEN)
+            
+            # Mark token as used
+            login_token.mark_as_used(
+                ip_address=self.get_client_ip(request),
+                user_agent=request.META.get('HTTP_USER_AGENT', '')[:500]
+            )
+            
+            # Update last login
+            stakeholder.last_login = timezone.now()
+            stakeholder.save(update_fields=['last_login'])
+            
+            logger.info(f"Successful token login for: {stakeholder.email}")
+            
+            # If you're using JWT tokens, generate one here
+            # from rest_framework_simplejwt.tokens import RefreshToken
+            # refresh = RefreshToken()
+            # refresh['stakeholder_id'] = str(stakeholder.id)
+            # refresh['email'] = stakeholder.email
+            # refresh['group_id'] = str(stakeholder.group.id)
+            user_info = UserData.objects.get(email=stakeholder.email, is_active=True)
+            refresh = RefreshToken.for_user(user_info)
+            access_token = str(refresh.access_token)
+            refresh_token = str(refresh)
+
+            response_data = {
+                'message': 'Login successful',
+                'message_stat': 'login_successful',
+                'access': access_token,
+                'refresh': refresh_token,
+                "user": {
+                    "id": str(stakeholder.id),
+                    "email": stakeholder.email,
+                    "role": "stakeholder",
+                    "first_name": stakeholder.first_name,
+                    "last_name": stakeholder.last_name,
+                    "group_name": stakeholder.group.name,
+                    "group_id": str(stakeholder.group.id),
+                },
+              
+            }
+            response = Response(response_data, status=status.HTTP_200_OK)
+                
+            # Set authentication cookies (if you have this function)
+            try:
+                set_auth_cookies(response, access_token, refresh_token)
+            except NameError:
+                # If set_auth_cookies function doesn't exist, skip it
+                print(f"NameError - {NameError}")
+                pass
+            
+            logger.info(f"User {stakeholder.email} logged in successfully via token")
+            
+            return response
+            # return Response({
+            #     "message": "Login successful",
+            #     "success": True,
+            #     "status": "login_successful",
+            #     "stakeholder": {
+            #         "id": str(stakeholder.id),
+            #         "email": stakeholder.email,
+            #         "first_name": stakeholder.first_name,
+            #         "last_name": stakeholder.last_name,
+            #         "group_name": stakeholder.group.name,
+            #         "group_id": str(stakeholder.group.id),
+            #     }
+            #     # Add JWT tokens here if using them:
+            #     # "access": str(refresh.access_token),
+            #     # "refresh": str(refresh),
+            # }, status=status.HTTP_200_OK)
+
+
+            """
+            user_info = User.objects.get(email=user.email, is_active=True)
+
+            print(f"generating----tokens")
+            # Generate JWT tokens
+            refresh = RefreshToken.for_user(user_info)
+            access_token = str(refresh.access_token)
+            refresh_token = str(refresh)
+            
+            # Update last login
+            user.last_login = timezone.now()
+            user.save(update_fields=['last_login'])
+            print(f'user email = {user.email}')
+            logger.info(f"Successful token login for user: {user_info.email}")
+            
+            # Prepare response data
+            response_data = {
+                'message': 'Login successful',
+                'message_stat': 'login_successful',
+                'access': access_token,
+                'refresh': refresh_token,
+                'user': {
+                    'id': user.id,
+                    'email': user.email,
+                    'first_name': getattr(user, 'first_name', ''),
+                    'last_name': getattr(user, 'last_name', ''),
+                    'is_active': user.is_active,
+                    'last_login': user.last_login.isoformat() if user.last_login else None,
+                },
+                'client': {
+                    'id': invitation.client.id,
+                    'company_name': invitation.client.company_name,
+                    'email': invitation.client.email,
+                }
+            }
+            
+            # return Response(response_data, status=status.HTTP_200_OK)
+            response = Response(response_data, status=status.HTTP_200_OK)
+                
+            # Set authentication cookies (if you have this function)
+            try:
+                set_auth_cookies(response, access_token, refresh_token)
+            except NameError:
+                # If set_auth_cookies function doesn't exist, skip it
+                print(f"NameError - {NameError}")
+                pass
+            
+            logger.info(f"User {user.email} logged in successfully via token")
+            
+            return response
+            """
+            
+        except Exception as e:
+            logger.error(f"Unexpected error in token login for token {token}: {e}")
+            import traceback
+            logger.error(f"Full traceback: {traceback.format_exc()}")
+            return Response({
+                "error": "An unexpected error occurred during login. Please try again.",
+                "status": "server_error"
+            }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)

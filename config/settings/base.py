@@ -58,7 +58,7 @@ LOCAL_APPS = [
     "core_apps.products",
     "core_apps.authentication",
     "core_apps.clients",
-    # "core_apps.esg",
+    "core_apps.esg",
     # "core_apps.stakeholder_analysis",
     # "core_apps.materiality_analysis",
     # "core_apps.user_profile",
@@ -209,8 +209,7 @@ REST_FRAMEWORK = {
     "DEFAULT_SCHEMA_CLASS": "drf_spectacular.openapi.AutoSchema",
     "DEFAULT_AUTHENTICATION_CLASSES": [
         "core_apps.common.cookie_auth.CookieAuthentication",
-        "core_apps.common.auth.client_admin_cookie_auth.ClientAdminCookieAuthentication",
-        # "core_apps.common.auth.terramo_cookie_auth.TerramoCookieAuthentication",
+    
     ],
     "DEFAULT_PERMISSION_CLASSES": [
         "rest_framework.permissions.IsAuthenticated",

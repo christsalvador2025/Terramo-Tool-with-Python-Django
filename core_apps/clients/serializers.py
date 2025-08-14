@@ -581,6 +581,7 @@ class ClientCreateDataSerializer(serializers.ModelSerializer):
             send_invitation = validated_data.pop('send_invitation', True)
             invitation_expires_days = validated_data.pop('invitation_expires_days', 30)
             raw_token = validated_data.pop('raw_token', uuid.uuid4())
+            # raw_token = validated_data.get('raw_token', uuid.uuid4())
 
             # Set created_by if available in context
             request = self.context.get('request')
@@ -783,6 +784,43 @@ class AcceptInvitationSerializer(serializers.Serializer):
 
 
 class AcceptInvitationWithEmailSerializer(serializers.Serializer):
+    """Enhanced serializer for accepting invitation with email verification"""
+    email = serializers.EmailField()
+    token = serializers.UUIDField()
+    
+    def validate_email(self, value):
+        """Validate email field"""
+        if not value:
+            raise serializers.ValidationError("Email is required.")
+        return value
+    
+    def validate_token(self, value):
+        """Validate invitation token"""
+        try:
+            invitation = ClientInvitation.objects.get(
+                token=value, 
+                is_active=True
+            )
+            self.context['invitation'] = invitation
+            return value
+        except ClientInvitation.DoesNotExist:
+            raise serializers.ValidationError("Invalid or expired invitation token.")
+    
+    def validate(self, attrs):
+        """Ensure email matches the invitation email"""
+        email = attrs.get('email')
+        invitation = self.context.get('invitation')
+        print(f"yos- -{invitation.client.email}")
+        if invitation and invitation.client.email.lower() != email.lower():
+            raise serializers.ValidationError(
+                "The provided email does not match the invitation email."
+            )
+            
+        return attrs
+    
+
+
+class ValidateClientAdminTokenSerializer(serializers.Serializer):
     """Enhanced serializer for accepting invitation with email verification"""
     email = serializers.EmailField()
     token = serializers.UUIDField()

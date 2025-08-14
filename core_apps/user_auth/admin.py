@@ -16,7 +16,7 @@ class CustomUserAdmin(UserAdmin):
         "username",
         "first_name",
         "last_name",
-        # "client",
+        "client",
         "role",
   
         "is_active"
@@ -48,7 +48,7 @@ class CustomUserAdmin(UserAdmin):
             {
                 "fields": (
                     "account_status",
-                    # "client",
+                    "client",
                     "role",
                     # "is_company_admin",
                     # "is_decision_maker",
@@ -81,5 +81,5 @@ class CustomUserAdmin(UserAdmin):
             },
         ),
     )
-    search_fields = ["email", "username", "first_name", "last_name"]
+    search_fields = ["email", "username", "first_name", "last_name", "client"]
     ordering = ["email"]

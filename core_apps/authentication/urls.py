@@ -6,7 +6,7 @@ from .views import (
     StakeholderCreateView, StakeholderInvitationAcceptView,
     StakeholderLoginView, StakeholderRegisterView,
     StakeholderTokenLoginView, LogoutView, StakeholderGroupInvitationAcceptView,
-    StakeholderGroupListCreateView, StakeholderGroupDetailView, StakeholderListView,SendStakeholderInvitationView, InvitationListView,ApproveStakeholderView, RejectStakeholderView, ProcessInvitationView, VerifyEmailView, StakeholderRegistrationView, GetInvitationLinkView
+    StakeholderGroupListCreateView, StakeholderGroupDetailView, StakeholderListView,SendStakeholderInvitationView, InvitationListView,ApproveStakeholderView, RejectStakeholderView, ProcessInvitationView, VerifyEmailView, StakeholderRegistrationView, GetInvitationLinkView,ValidateInvitationView,SubmitEmailView, StakeholderApprovalView, PendingStakeholdersView, StakeholderDetailView, StakeholderLoginStatusView, StakeholderLoginRequestView, StakeholderUserTokenLoginView
 )
 
 app_name = 'authentication'
@@ -62,10 +62,37 @@ urlpatterns = [
     path('client-admin/stakeholders/invitations/<uuid:pk>/reject/', RejectStakeholderView.as_view(), name='reject-stakeholder'),
     
     # Public invitation endpoints (no auth required)
-    path('stakeholder/invite/<uuid:token>/', ProcessInvitationView.as_view(), name='process-invitation'),
+    path('stakeholder/invite/<str:token>/', ProcessInvitationView.as_view(), name='process-invitation'),
     path('stakeholder/verify-email/', VerifyEmailView.as_view(), name='verify-email'),
     path('stakeholder/register/', StakeholderRegistrationView.as_view(), name='register'),
     
     # Utility endpoints
-    path('stakeholder/groups/<uuid:group_id>/invitation-link/', GetInvitationLinkView.as_view(), name='get-invitation-link')
+    path('stakeholder/groups/<str:group_id>/invitation-link/', GetInvitationLinkView.as_view(), name='get-invitation-link'),
+
+#     path('stakeholder/invitations/validate/', ValidateInvitationView.as_view(), name='validate-invitation'),
+#     path('stakeholder/invitations/verify-email/', VerifyEmailInvitationView.as_view(), name='verify-invitation-email'),
+
+#      path('invitation/stakeholder/validate/<uuid:token>/', validate_invitation_token, name='validate_invitation'),
+#     path('invitation/stakeholder/verify-email/', verify_email, name='verify_email'),
+      # Invitation flow URLs
+      
+    path('stakeholder/validate-invitation/', ValidateInvitationView.as_view(), name='validate_invitation'),
+    path('stakeholder/submit-email/', SubmitEmailView.as_view(), name='submit_email'),
+    path('stakeholder/register-user/', StakeholderRegistrationView.as_view(), name='register'),
+    
+    # Admin management URLs
+    path('stakeholder/approve/<str:id>/', StakeholderApprovalView.as_view(), name='approve_stakeholder'),
+#     path('stakeholder/approved/', ApprovedStakeholdersView.as_view(), name='approved_stakeholders'),
+    path('pending/', PendingStakeholdersView.as_view(), name='pending_stakeholders'),
+    path('detail/<uuid:stakeholder_id>/', StakeholderDetailView.as_view(), name='stakeholder_detail'),
+    
+     # stakeholder request login
+
+    # Stakeholder status URLs
+    path('update-login-status/', StakeholderLoginStatusView.as_view(), name='update_login_status'),
+
+    # updated authentication for stakeholders
+    path('stakeholder/request-login/', StakeholderLoginRequestView.as_view(), name='stakeholder-request-login'),
+
+    path('stakeholder/login-user/<str:token>/', StakeholderUserTokenLoginView.as_view(), name='stakeholder-token-login'),
 ]

@@ -205,7 +205,7 @@ class ClientViewDataSet(ModelViewSet):
         client: Client = serializer.save(created_by=self.request.user)
         # ----- 3. CREATE CLIENT-ADMIN USER -------------------------------
         auto_pwd   = get_random_string(32)
-        auto_user  = f"T-{data['contact_person_first_name']}-{get_random_string(6)}"
+       
         user_obj   = User.objects.create_user(
             # username=auto_user,
             email=email,
@@ -1980,6 +1980,7 @@ class ClientAdminTokenLoginView(APIView):
     
     def post(self, request, token):
         """Authenticate user with login token and return JWT tokens"""
+       
         try:
             logger.info(f"Token login attempt for token: {token}")
             print(f"token sent={token}")
@@ -1988,6 +1989,7 @@ class ClientAdminTokenLoginView(APIView):
             
             if not login_token:
                 logger.warning(f"Invalid or expired token: {token}")
+                print(f" --- invalid token - {login_token}")
                 return Response({
                     "error": "Invalid or expired login link. Please request a new login link.",
                     "status": "token_invalid"
@@ -2048,6 +2050,7 @@ class ClientAdminTokenLoginView(APIView):
                 'user': {
                     'id': user.id,
                     'email': user.email,
+                    'role': user.role,
                     'first_name': getattr(user, 'first_name', ''),
                     'last_name': getattr(user, 'last_name', ''),
                     'is_active': user.is_active,
@@ -2068,6 +2071,7 @@ class ClientAdminTokenLoginView(APIView):
                 set_auth_cookies(response, access_token, refresh_token)
             except NameError:
                 # If set_auth_cookies function doesn't exist, skip it
+                print(f"NameError - {NameError}")
                 pass
             
             logger.info(f"User {user.email} logged in successfully via token")

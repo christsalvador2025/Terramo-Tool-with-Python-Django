@@ -38,7 +38,7 @@ urlpatterns = [
     #      ClientAdminLoginVerifyView.as_view(), 
     #      name='client-admin-verify-login'),
     
-    path('client-admin/login/<uuid:token>/', 
+    path('client-admin/login/<str:token>/', 
          ClientAdminTokenLoginView.as_view(), 
          name='client-admin-token-login'),
 ]   
