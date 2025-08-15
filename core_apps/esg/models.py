@@ -66,18 +66,13 @@ class ESGCategory(TimeStampedModel):
 
 class ESGQuestion(TimeStampedModel):
     """ESG Questions/Measures for each category"""
-    # QUESTIONNAIRE_TYPES_CHOICES = [
-    #     ('client_admin', 'Client Admin'),
-    #     ('stakeholder', 'Stakeholder'),
-    # ]
-    # questionnaire_type = models.CharField(max_length=20, choices=QUESTIONNAIRE_TYPES_CHOICES, default='stakeholder')
     
     category = models.ForeignKey(ESGCategory, on_delete=models.CASCADE, related_name='questions')
     measure = models.TextField()    
     index_code = models.CharField(max_length=10)  # E-1, S-1, G-1, etc.
     desription = models.TextField(null=True, blank=True) 
     order = models.PositiveIntegerField(default=0)  
-    # questionnaire_type = models.CharField(max_length=20, choices=QUESTIONNAIRE_TYPES_CHOICES, default='stakeholder')
+ 
     is_active = models.BooleanField(default=True)
     year = models.ForeignKey(ESGYear, on_delete=models.CASCADE, related_name='year_questions')
    
@@ -129,10 +124,6 @@ class ESGQuestionResponse(TimeStampedModel):
         ('client_admin', 'Client Admin'),
         ('stakeholder', 'Stakeholder'),
     ]
-    # questionnaire_type = models.CharField(max_length=20, choices=QUESTIONNAIRE_TYPES_CHOICES, default='stakeholder')
-    # survey = models.ForeignKey(ESGSurvey, on_delete=models.CASCADE, related_name='responses')
-    # stakeholder = models.ForeignKey(Stakeholder, on_delete=models.CASCADE, related_name='esg_responses')
-    # survey_question = models.ForeignKey(ESGSurveyQuestion, on_delete=models.CASCADE)
     
     question = models.ForeignKey(
         ESGQuestion, 
@@ -185,20 +176,30 @@ class ESGQuestionResponse(TimeStampedModel):
     @property
     def is_answered(self):
         """Check if the question has been meaningfully answered"""
-        return self.priority > 0 or self.status_quo > 0 or bool(self.comment)
+        
+        return self.priority is not None or self.status_quo is not None or bool(self.comment)
     
     @property
     def completion_score(self):
         """Calculate completion score (0-1)"""
         score = 0
-        if self.priority > 0:
-            score += 0.4
-        if self.status_quo > 0:
-            score += 0.4
-        if self.comment:
-            score += 0.2
+        if self.status != 'draft':
+             
+
+            if self.priority is not None:
+                if self.priority > 0:
+                    score += 0.4
+            if self.status_quo is not None:
+                if self.status_quo > 0:
+                    score += 0.4
+            if self.comment:
+                score += 0.2
+            return score
         return score
 
+    @property
+    def client(self):
+        return self.user.client
 
 
 class ESGSurvey(models.Model):

@@ -123,12 +123,14 @@ class ESGQuestionResponseSerializer(serializers.ModelSerializer):
     priority_display = serializers.CharField(source='get_priority_display', read_only=True)
     status_quo_display = serializers.CharField(source='get_status_quo_display', read_only=True)
     status_display = serializers.CharField(source='get_status_display', read_only=True)
+    client = serializers.CharField(source='user.client', read_only=True)
+    client_id = serializers.CharField(source='user.client.id', read_only=True)
     questionnaire_type_display = serializers.CharField(source='get_questionnaire_type_display', read_only=True)
     
     class Meta:
         model = ESGQuestionResponse
         fields = [
-            'id', 'question', 'question_detail', 'user', 'user_email',
+            'id', 'question', 'question_detail', 'user', 'user_email', 'client', 'client_id',
             'questionnaire_type', 'questionnaire_type_display',
             'priority', 'priority_display', 'status_quo', 'status_quo_display',
             'comment', 'status', 'status_display', 'responded_at',
