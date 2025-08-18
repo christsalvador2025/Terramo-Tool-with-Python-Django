@@ -152,7 +152,7 @@ class StakeholderGroup(models.Model):
         return f"{self.name} - {self.client.company_name}"
     
     def get_invite_full_url(self):
-        return f"{settings.DOMAIN}/stakeholder/invite/{self.invitation_token}/"
+        return f"{settings.DOMAIN}/stakeholder/accept-invitation/{self.invitation_token}/"
 
 class Stakeholder(models.Model):
     """Stakeholder model - not in User table"""
@@ -226,7 +226,7 @@ class StakeholderInvitation(models.Model):
         return f"Invitation to {self.email} for {self.stakeholder_group.name}"
     
     def get_invitation_url(self):
-        return f"{settings.FRONTEND_DOMAIN_URL}/stakeholder/invite/{self.invitation_token}/"
+        return f"{settings.FRONTEND_DOMAIN_URL}/stakeholder/accept-invitation/{self.invitation_token}/"
     
     @property
     def is_expired(self):
