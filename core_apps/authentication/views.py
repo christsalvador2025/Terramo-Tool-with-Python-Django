@@ -21,7 +21,7 @@ from .serializers import (
     StakeholderGroupSerializer, StakeholderCreateSerializer,
     StakeholderRegistrationSerializer, EmailLoginSerializer,
     InvitationTokenSerializer, ClientAdminDetailSerializer,
-    StakeholderDetailSerializer
+    StakeholderDetailSerializer, CreateStakeholderSerializer
 )
 from .permissions import IsTerramoAdmin, IsClientAdmin, IsStakeholder
 from .utils import generate_invitation_email, generate_login_email, set_auth_cookies
@@ -1274,19 +1274,7 @@ class StakeholderGroupDetailView(generics.RetrieveUpdateDestroyAPIView):
             f"{self.request.user.email}"
         )
 
-class StakeholderListView(generics.ListAPIView):
-    """List stakeholders in a group - Client Admin only"""
-    serializer_class = StakeholderSerializer
-    permission_classes = [IsClientAdmin]
-    
-    def get_queryset(self):
-        group_id = self.kwargs['group_id']
-        group = get_object_or_404(
-            StakeholderGroup,
-            id=group_id,
-            client=self.request.user.client
-        )
-        return Stakeholder.objects.filter(group=group).order_by('-created_at')
+
 
 class SendStakeholderInvitationView(APIView):
     """Send stakeholder invitation - Client Admin only"""
@@ -2768,3 +2756,151 @@ class StakeholderUserTokenLoginView(APIView):
                 "error": "An unexpected error occurred during login. Please try again.",
                 "status": "server_error"
             }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+        
+
+
+# ------------------ updated views -------------------------
+from core_apps.user_auth.permissions import IsClientAdminOrTerramoAdmin
+from .serializers import UpdatedStakeholderGroupSerializer, UpdatedStakeholderSerializer
+
+class CreateStakeholderView(generics.CreateAPIView):
+    """Create a single stakeholder"""
+    serializer_class = CreateStakeholderSerializer
+    permission_classes = [IsAuthenticated, IsClientAdminOrTerramoAdmin]
+    
+    def get_serializer_context(self):
+        context = super().get_serializer_context()
+        context['group_id'] = self.kwargs.get('group_id')
+        return context
+    
+    def perform_create(self, serializer):
+        group_id = self.kwargs.get('group_id')
+        group = get_object_or_404(StakeholderGroup, id=group_id)
+        
+        # Verify user has access to this group
+        if self.request.user.role != 'terramo_admin' and group.client != self.request.user.client:
+            raise PermissionError("You don't have permission to create stakeholders in this group.")
+        
+
+        # -------------- login token start --------------
+        
+            
+        stakeholder = serializer.save()
+        
+        # Send email notification if invitation was created
+        if serializer.validated_data.get('send_invitation', True):
+            self.send_stakeholder_creation_email(stakeholder)
+
+
+    
+    def send_stakeholder_creation_email(self, stakeholder):
+        """Send email to newly created stakeholder"""
+        invitation = StakeholderInvitation.objects.filter(
+            email=stakeholder.email,
+            stakeholder_group=stakeholder.group
+        ).first()
+        
+        if invitation:
+            invitation_url = invitation.get_invitation_url()
+            subject = f"Invitation to join {stakeholder.group.client.company_name}"
+            message = f"""
+            Hi {stakeholder.first_name or 'there'},
+            
+            You have been invited to join the stakeholder group '{stakeholder.group.name}' 
+            for {stakeholder.group.client.company_name}.
+            
+            Click the link below to complete your registration:
+            {invitation_url}
+            
+            This invitation will expire in 7 days.
+            
+            Best regards,
+            {stakeholder.group.client.company_name} Team
+            """
+            
+            send_mail(
+                subject,
+                message,
+                settings.DEFAULT_FROM_EMAIL,
+                [stakeholder.email],
+                fail_silently=False,
+            )
+
+class RemoveStakeholderView(generics.DestroyAPIView):
+    """Remove a stakeholder from the system"""
+    permission_classes = [IsAuthenticated, IsClientAdminOrTerramoAdmin]
+    
+    def get_object(self):
+        stakeholder_id = self.kwargs.get('stakeholder_id')
+        stakeholder = get_object_or_404(Stakeholder, id=stakeholder_id)
+        
+        # Verify user has access to this stakeholder
+        if (self.request.user.role != 'terramo_admin' and 
+            stakeholder.group.client != self.request.user.client):
+            raise PermissionError("You don't have permission to remove this stakeholder.")
+        
+        return stakeholder
+    
+    def destroy(self, request, *args, **kwargs):
+        stakeholder = self.get_object()
+        
+        with transaction.atomic():
+            # Also remove associated user if they exist and only belong to this stakeholder
+            if stakeholder.user and hasattr(stakeholder.user, 'usr_stakeholder'):
+                user = stakeholder.user
+                # Only delete user if they're only associated with this stakeholder
+                if Stakeholder.objects.filter(user=user).count() == 1:
+                    user.delete()
+            
+            stakeholder.delete()
+        
+        return Response(status=status.HTTP_204_NO_CONTENT)
+
+
+
+class StakeholderGroupListView(generics.ListAPIView):
+    """List stakeholder groups for the current user's client"""
+    serializer_class = UpdatedStakeholderGroupSerializer
+    permission_classes = [IsAuthenticated, IsClientAdminOrTerramoAdmin]
+    
+    def get_queryset(self):
+        if self.request.user.role == 'terramo_admin':
+            return StakeholderGroup.objects.all().order_by('name')
+        else:
+            return StakeholderGroup.objects.filter(
+                client=self.request.user.client,
+                is_active=True
+            ).order_by('name')
+
+
+
+class StakeholderListView(generics.ListAPIView):
+    """List stakeholders in a group - Client Admin only"""
+    serializer_class = StakeholderSerializer
+    permission_classes = [IsAuthenticated, IsClientAdminOrTerramoAdmin]
+    
+    def get_queryset(self):
+        group_id = self.kwargs['group_id']
+        group = get_object_or_404(
+            StakeholderGroup,
+            id=group_id,
+            client=self.request.user.client
+        )
+        return Stakeholder.objects.filter(group=group).order_by('-created_at')
+
+
+class UpdatedStakeholderListView(generics.ListAPIView):
+    """List stakeholders for a specific group"""
+    serializer_class = StakeholderSerializer
+    permission_classes = [IsAuthenticated, IsClientAdminOrTerramoAdmin]
+    
+    def get_queryset(self):
+        group_id = self.kwargs.get('group_id')
+        group = get_object_or_404(StakeholderGroup, id=group_id)
+        
+        # Verify user has access to this group
+        if (self.request.user.role != 'terramo_admin' and 
+            group.client != self.request.user.client):
+            return Stakeholder.objects.none()
+        
+        return Stakeholder.objects.filter(group=group, status='approved').select_related('group', 'user').order_by('created_at')

@@ -854,3 +854,386 @@ class UpdatedStakeholderSerializer(serializers.ModelSerializer):
             'id', 'group_name', 'company_name', 
             'created_at', 'last_login'
         ]
+
+
+# ----------------- updated code : August 18, 2025 Client Admin ---------
+from datetime import timedelta
+from core_apps.user_auth.models import User as UserData
+from django.utils.crypto import get_random_string
+try:
+    from core_apps.esg.models import ESGYear, ESGQuestion, ESGQuestionResponse
+    ESG_AVAILABLE = True
+except ImportError:
+    ESG_AVAILABLE = False
+    logger.warning("ESG model not available")
+    print(f"--- ESG not available ---")
+
+try:
+    from core_apps.authentication.models import StakeholderLoginToken  # Adjust import path as needed
+    LOGIN_TOKEN_AVAILABLE = True
+except ImportError:
+    LOGIN_TOKEN_AVAILABLE = False
+    logger.warning("StakeholderLoginToken model not available")
+
+# class CreateStakeholderSerializer(serializers.Serializer):
+#     email = serializers.EmailField(validators=[EmailValidator()])
+#     first_name = serializers.CharField(max_length=100, required=False, allow_blank=True)
+#     last_name = serializers.CharField(max_length=100, required=False, allow_blank=True)
+#     send_invitation = serializers.BooleanField(default=True)
+
+#     def validate_email(self, value):
+#         group_id = self.context.get('group_id')
+        
+#         # Check if stakeholder already exists in this group
+#         if Stakeholder.objects.filter(email=value, group_id=group_id).exists():
+#             raise serializers.ValidationError(
+#                 "A stakeholder with this email already exists in this group."
+#             )
+        
+#         # Check if there's already a pending invitation for this group
+#         if StakeholderInvitation.objects.filter(
+#             email=value, 
+#             stakeholder_group_id=group_id,
+#             status__in=['sent', 'clicked', 'email_verified']
+#         ).exists():
+#             raise serializers.ValidationError(
+#                 "A pending invitation already exists for this email in this group."
+#             )
+        
+#         return value
+
+#     def create(self, validated_data):
+#         group_id = self.context.get('group_id')
+#         request_user = self.context['request'].user
+        
+#         group = StakeholderGroup.objects.get(id=group_id)
+        
+#         # Generate auto password for user creation
+#         auto_pwd = get_random_string(length=12)
+        
+#         # Create stakeholder with approved status if created by admin
+#         stakeholder = Stakeholder.objects.create(
+#             email=validated_data['email'],
+#             first_name=validated_data.get('first_name', ''),
+#             last_name=validated_data.get('last_name', ''),
+#             group=group,
+#             status='approved',  # Auto-approve when created by admin
+#             is_registered=True
+#         )
+        
+#         # Create user account for the stakeholder
+#         try:
+#             user_obj = UserData.objects.create_user(
+#                 email=stakeholder.email,
+#                 first_name=stakeholder.first_name,
+#                 last_name=stakeholder.last_name,
+#                 password=auto_pwd,
+#                 role="stakeholder",   
+#                 client=stakeholder.group.client,
+#                 is_active=True,
+#             )
+            
+#             # Link stakeholder to user
+#             stakeholder.user = user_obj
+#             stakeholder.is_registered = True
+#             stakeholder.save()
+            
+#             # Create ESG responses for the user
+#             if ESG_AVAILABLE:
+#                 self.create_esg_responses_for_user(user_obj)
+            
+#             logger.info(f"Successfully created user and linked to stakeholder: {stakeholder.email}")
+            
+#         except Exception as e:
+#             logger.error(f"Failed to create user for stakeholder {stakeholder.email}: {e}")
+#             # Optionally, you might want to rollback stakeholder creation or handle this differently
+#             raise serializers.ValidationError(f"Failed to create user account: {str(e)}")
+        
+#         # Create invitation if requested
+#         if validated_data.get('send_invitation', True):
+#             expires_at = timezone.now() + timedelta(days=7)  # 7 days expiry
+#             StakeholderInvitation.objects.create(
+#                 stakeholder_group=group,
+#                 email=validated_data['email'],
+#                 sent_by=request_user,
+#                 expires_at=expires_at,
+#                 stakeholder=stakeholder,
+#                 status='delivered'
+#             )
+        
+#         return stakeholder
+
+#     def create_esg_responses_for_user(self, user):
+#         """
+#         Create ESGQuestionResponse records for a stakeholder user
+#         """
+#         if not ESG_AVAILABLE:
+#             logger.warning("ESG models not available, skipping ESG response creation")
+#             return []
+            
+#         # Get current ESG year
+#         current_year = ESGYear.get_current_year()
+        
+#         if not current_year:
+#             logger.warning("No current ESG year found, skipping ESG response creation")
+#             return []
+        
+#         # Get all active ESG questions for the current year
+#         active_questions = ESGQuestion.objects.filter(
+#             year=current_year,
+#             is_active=True
+#         ).select_related('category')
+        
+#         if not active_questions.exists():
+#             logger.warning(f"No active ESG questions found for year {current_year.year}")
+#             return []
+        
+#         # Create ESGQuestionResponse records
+#         responses_to_create = []
+#         for question in active_questions:
+#             response = ESGQuestionResponse(
+#                 question=question,
+#                 user=user,
+#                 questionnaire_type='stakeholder',
+#                 status='draft'
+#             )
+#             responses_to_create.append(response)
+        
+#         try:
+#             # Bulk create for better performance
+#             created_responses = ESGQuestionResponse.objects.bulk_create(
+#                 responses_to_create, 
+#                 ignore_conflicts=True
+#             )
+#             logger.info(f"Created {len(responses_to_create)} ESG question responses for {user.email}")
+#             return created_responses
+#         except Exception as e:
+#             logger.error(f"Failed to create ESG responses for {user.email}: {e}")
+#             return []
+        
+
+class CreateStakeholderSerializer(serializers.Serializer):
+    email = serializers.EmailField(validators=[EmailValidator()])
+    first_name = serializers.CharField(max_length=100, required=False, allow_blank=True)
+    last_name = serializers.CharField(max_length=100, required=False, allow_blank=True)
+    send_invitation = serializers.BooleanField(default=True)
+    send_login_link = serializers.BooleanField(default=True)  # New field for login link
+
+    def validate_email(self, value):
+        group_id = self.context.get('group_id')
+        
+        # Check if stakeholder already exists in this group
+        if Stakeholder.objects.filter(email=value, group_id=group_id).exists():
+            raise serializers.ValidationError(
+                "A stakeholder with this email already exists in this group."
+            )
+        
+        # Check if there's already a pending invitation for this group
+        if StakeholderInvitation.objects.filter(
+            email=value, 
+            stakeholder_group_id=group_id,
+            status__in=['sent', 'clicked', 'email_verified']
+        ).exists():
+            raise serializers.ValidationError(
+                "A pending invitation already exists for this email in this group."
+            )
+        
+        return value
+
+    def create(self, validated_data):
+        group_id = self.context.get('group_id')
+        request_user = self.context['request'].user
+        request = self.context['request']
+        
+        group = StakeholderGroup.objects.get(id=group_id)
+        
+        # Generate auto password for user creation
+        auto_pwd = get_random_string(length=12)
+        
+        # Create stakeholder with approved status if created by admin
+        stakeholder = Stakeholder.objects.create(
+            email=validated_data['email'],
+            first_name=validated_data.get('first_name', ''),
+            last_name=validated_data.get('last_name', ''),
+            group=group,
+            status='approved',  # Auto-approve when created by admin
+            is_registered=True
+        )
+        
+        # Create user account for the stakeholder
+        try:
+            user_obj = UserData.objects.create_user(
+                email=stakeholder.email,
+                first_name=stakeholder.first_name,
+                last_name=stakeholder.last_name,
+                password=auto_pwd,
+                role="stakeholder",   
+                client=stakeholder.group.client,
+                is_active=True,
+            )
+            
+            # Link stakeholder to user
+            stakeholder.user = user_obj
+            stakeholder.is_registered = True
+            stakeholder.save()
+            
+            # Create ESG responses for the user
+            if ESG_AVAILABLE:
+                self.create_esg_responses_for_user(user_obj)
+            
+            logger.info(f"Successfully created user and linked to stakeholder: {stakeholder.email}")
+            
+        except Exception as e:
+            logger.error(f"Failed to create user for stakeholder {stakeholder.email}: {e}")
+            # Optionally, you might want to rollback stakeholder creation or handle this differently
+            raise serializers.ValidationError(f"Failed to create user account: {str(e)}")
+        
+        # Create invitation if requested
+        stakeholder_invitation = None
+        if validated_data.get('send_invitation', True):
+            pass
+            # expires_at = timezone.now() + timedelta(days=7)  # 7 days expiry
+            # stakeholder_invitation = StakeholderInvitation.objects.create(
+            #     stakeholder_group=group,
+            #     email=validated_data['email'],
+            #     sent_by=request_user,
+            #     expires_at=expires_at,
+            #     stakeholder=stakeholder,
+            #     status='sent'
+            # )
+        
+        # Create login token and send login link if requested
+        if validated_data.get('send_login_link', True) and LOGIN_TOKEN_AVAILABLE:
+            self.create_and_send_login_token(stakeholder, stakeholder_invitation, request)
+        
+        return stakeholder
+
+    def create_and_send_login_token(self, stakeholder, stakeholder_invitation, request):
+        """Create login token and send login link email"""
+        try:
+            from django.core.mail import send_mail
+            from .views import generate_stakeholder_login_email  # Adjust import as needed
+            
+            # Create new login token
+            login_token_obj = StakeholderLoginToken.objects.create(
+                stakeholder=stakeholder,
+                stakeholder_invitation=stakeholder_invitation,
+                ip_address=self.get_client_ip(request),
+                user_agent=request.META.get('HTTP_USER_AGENT', '')[:500]
+            )
+            
+            login_url = login_token_obj.get_login_url()
+            logger.info(f"Generated login token for {stakeholder.email}: {login_token_obj.token}")
+            
+            # Get stakeholder's name for email
+            stakeholder_name = stakeholder.first_name or stakeholder.email.split('@')[0]
+            group_name = stakeholder.group.name
+            
+            # Generate login email
+            subject = f"Login Link - {group_name}"
+            message = generate_stakeholder_login_email(stakeholder_name, login_url, group_name)
+            
+            # Send email
+            try:
+                send_mail(
+                    subject=subject,
+                    message=message,
+                    from_email=settings.DEFAULT_FROM_EMAIL,
+                    recipient_list=[stakeholder.email],
+                    fail_silently=False,
+                )
+                
+                logger.info(f"Login link sent successfully to {stakeholder.email}")
+                
+            except Exception as e:
+                logger.error(f"Failed to send login email to {stakeholder.email}: {e}")
+                # Mark token as used since email failed
+                login_token_obj.mark_as_used()
+                raise
+                
+        except Exception as e:
+            logger.error(f"Failed to create login token for {stakeholder.email}: {e}")
+            # Don't fail the entire stakeholder creation if login token fails
+            pass
+
+    def get_client_ip(self, request):
+        """Get client IP address from request"""
+        x_forwarded_for = request.META.get('HTTP_X_FORWARDED_FOR')
+        if x_forwarded_for:
+            ip = x_forwarded_for.split(',')[0]
+        else:
+            ip = request.META.get('REMOTE_ADDR')
+        return ip
+
+    def create_esg_responses_for_user(self, user):
+        """
+        Create ESGQuestionResponse records for a stakeholder user
+        """
+        if not ESG_AVAILABLE:
+            logger.warning("ESG models not available, skipping ESG response creation")
+            return []
+            
+        # Get current ESG year
+        current_year = ESGYear.get_current_year()
+        
+        if not current_year:
+            logger.warning("No current ESG year found, skipping ESG response creation")
+            return []
+        
+        # Get all active ESG questions for the current year
+        active_questions = ESGQuestion.objects.filter(
+            year=current_year,
+            is_active=True
+        ).select_related('category')
+        
+        if not active_questions.exists():
+            logger.warning(f"No active ESG questions found for year {current_year.year}")
+            return []
+        
+        # Create ESGQuestionResponse records
+        responses_to_create = []
+        for question in active_questions:
+            response = ESGQuestionResponse(
+                question=question,
+                user=user,
+                questionnaire_type='stakeholder',
+                status='draft'
+            )
+            responses_to_create.append(response)
+        
+        try:
+            # Bulk create for better performance
+            created_responses = ESGQuestionResponse.objects.bulk_create(
+                responses_to_create, 
+                ignore_conflicts=True
+            )
+            logger.info(f"Created {len(responses_to_create)} ESG question responses for {user.email}")
+            return created_responses
+        except Exception as e:
+            logger.error(f"Failed to create ESG responses for {user.email}: {e}")
+            return []
+        
+
+
+
+
+class UpdatedStakeholderSerializer(serializers.ModelSerializer):
+    group = serializers.SerializerMethodField()
+    
+    class Meta:
+        model = Stakeholder
+        fields = [
+            'id', 'email', 'first_name', 'last_name', 'group',
+            'is_registered', 'status', 'created_at', 'last_login'
+        ]
+    
+    def get_group(self, obj):
+        return {
+            'id': str(obj.group.id),
+            'name': obj.group.name
+        }
+
+class UpdatedStakeholderGroupSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = StakeholderGroup
+        fields = ['id', 'name', 'is_active', 'created_at']

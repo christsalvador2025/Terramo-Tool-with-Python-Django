@@ -6,7 +6,7 @@ from .views import (
     StakeholderCreateView, StakeholderInvitationAcceptView,
     StakeholderLoginView, StakeholderRegisterView,
     StakeholderTokenLoginView, LogoutView, StakeholderGroupInvitationAcceptView,
-    StakeholderGroupListCreateView, StakeholderGroupDetailView, StakeholderListView,SendStakeholderInvitationView, InvitationListView,ApproveStakeholderView, RejectStakeholderView, ProcessInvitationView, VerifyEmailView, StakeholderRegistrationView, GetInvitationLinkView,ValidateInvitationView,SubmitEmailView, StakeholderApprovalView, PendingStakeholdersView, StakeholderDetailView, StakeholderLoginStatusView, StakeholderLoginRequestView, StakeholderUserTokenLoginView
+    StakeholderGroupListCreateView, StakeholderGroupDetailView, StakeholderListView,SendStakeholderInvitationView, InvitationListView,ApproveStakeholderView, RejectStakeholderView, ProcessInvitationView, VerifyEmailView, StakeholderRegistrationView, GetInvitationLinkView,ValidateInvitationView,SubmitEmailView, StakeholderApprovalView, PendingStakeholdersView, StakeholderDetailView, StakeholderLoginStatusView, StakeholderLoginRequestView, StakeholderUserTokenLoginView, CreateStakeholderView, RemoveStakeholderView,StakeholderGroupListView, UpdatedStakeholderListView
 )
 
 app_name = 'authentication'
@@ -96,4 +96,19 @@ urlpatterns = [
     path('stakeholder/request-login/', StakeholderLoginRequestView.as_view(), name='stakeholder-request-login'),
      path('stakeholder/approve-status/<uuid:stakeholder_id>/', StakeholderApprovalView.as_view(), name='approve_stakeholder'),
     path('stakeholder/login-user/<str:token>/', StakeholderUserTokenLoginView.as_view(), name='stakeholder-token-login'),
+
+    # ---- updated --- create stakeholders
+    path('groups/<uuid:group_id>/stakeholders/', 
+         UpdatedStakeholderListView.as_view(), 
+         name='stakeholder-list'),
+    path('groups/<uuid:group_id>/stakeholders/create/', 
+         CreateStakeholderView.as_view(), name='create-stakeholder'),
+
+     path('stakeholders/<uuid:stakeholder_id>/remove/', 
+         RemoveStakeholderView.as_view(), name='remove-stakeholder'),
+    
+    # Get current user's stakeholder groups
+    path('stakeholder-groups/', 
+         StakeholderGroupListView.as_view(), 
+         name='stakeholder-groups')
 ]
