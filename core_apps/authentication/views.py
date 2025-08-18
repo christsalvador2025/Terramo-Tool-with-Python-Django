@@ -27,7 +27,7 @@ from .permissions import IsTerramoAdmin, IsClientAdmin, IsStakeholder
 from .utils import generate_invitation_email, generate_login_email, set_auth_cookies
 from rest_framework.permissions import AllowAny, IsAuthenticated
 
-
+from core_apps.user_auth.models import User as UserData
 
 logger = logging.getLogger(__name__)
 
@@ -938,6 +938,7 @@ class LogoutView(APIView):
         response.delete_cookie('access', path=settings.COOKIE_PATH)
         response.delete_cookie('refresh', path=settings.COOKIE_PATH)
         response.delete_cookie('logged_in', path=settings.COOKIE_PATH)
+        response.delete_cookie('user_role', path=settings.COOKIE_PATH)
         response.delete_cookie('session_key', path=settings.COOKIE_PATH)
         
         return response
@@ -1718,82 +1719,207 @@ class ValidateInvitationView(APIView):
                 )
         
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
-
+import uuid
+def _unique_invitation_token():
+    """Generate a unique token if invitation_token is unique=True."""
+    from core_apps.authentication.models import StakeholderInvitation
+    while True:
+        tok = uuid.uuid4()
+        if not StakeholderInvitation.objects.filter(invitation_token=tok).exists():
+            return tok
+        
+from django.db import transaction, IntegrityError
 class SubmitEmailView(APIView):
     """Handle email submission for invitation"""
     authentication_classes = []
     permission_classes = [AllowAny]
     
-    def post(self, request):
-        serializer = EmailSubmissionSerializer(data=request.data)
-        if serializer.is_valid():
-            email = serializer.validated_data['email']
-            stakeholder_group = serializer.validated_data['stakeholder_group']
-            existing_stakeholder = serializer.validated_data['existing_stakeholder']
+    # def post(self, request):
+    #     serializer = EmailSubmissionSerializer(data=request.data)
+    #     if serializer.is_valid():
+    #         email = serializer.validated_data['email']
+    #         stakeholder_group = serializer.validated_data['stakeholder_group']
+    #         existing_stakeholder = serializer.validated_data['existing_stakeholder']
             
-            if existing_stakeholder:
-                if existing_stakeholder.is_registered:
-                    # Stakeholder exists and is registered - auto login
-                    if existing_stakeholder.user:
-                        # Update last login
-                        existing_stakeholder.last_login = timezone.now()
-                        existing_stakeholder.save()
+    #         if existing_stakeholder:
+    #             if existing_stakeholder.is_registered:
+    #                 # Stakeholder exists and is registered - auto login
+    #                 if existing_stakeholder.user:
+    #                     # Update last login
+    #                     existing_stakeholder.last_login = timezone.now()
+    #                     existing_stakeholder.save()
                         
-                        return Response({
+    #                     return Response({
+    #                         "action": "auto_login",
+    #                         "message": "Welcome back! You have been logged in automatically.",
+    #                         "stakeholder_id": str(existing_stakeholder.id),
+    #                         "redirect_url": "/stakeholder/dashboard/"
+    #                     }, status=status.HTTP_200_OK)
+    #             else:
+    #                 # Stakeholder exists but not registered - redirect to registration
+    #                 return Response({
+    #                     "action": "complete_registration",
+    #                     "message": "Please complete your registration.",
+    #                     "email": email,
+    #                     "token": str(serializer.validated_data['token']),
+    #                     "redirect_url": "/stakeholder/register/"
+    #                 }, status=status.HTTP_200_OK)
+    #         else:
+    #             # New stakeholder - create and redirect to registration
+    #             stakeholder = Stakeholder.objects.create(
+    #                 email=email,
+    #                 group=stakeholder_group,
+    #                 is_registered=False,
+    #                 status='pending'
+    #             )
+                
+    #             # Create or update stakeholder invitation
+    #             invitation, created = StakeholderInvitation.objects.get_or_create(
+    #                 email=email,
+    #                 stakeholder_group=stakeholder_group,
+    #                 defaults={
+    #                     'invitation_token': serializer.validated_data['token'],
+    #                     'status': 'clicked',
+    #                     'clicked_at': timezone.now(),
+    #                     'expires_at': timezone.now() + timezone.timedelta(days=7),
+    #                     'sent_by': stakeholder_group.created_by,
+    #                     'stakeholder': stakeholder
+    #                 }
+    #             )
+                
+    #             if not created:
+    #                 invitation.status = 'clicked'
+    #                 invitation.clicked_at = timezone.now()
+    #                 invitation.stakeholder = stakeholder
+    #                 invitation.save()
+                
+    #             return Response({
+    #                 "action": "register",
+    #                 "message": "Please complete your registration.",
+    #                 "email": email,
+    #                 # "token": str(serializer.validated_data['token']),
+    #                 "token" : str(stakeholder.id),
+    #                 "redirect_url": "/stakeholder/register/"
+    #             }, status=status.HTTP_201_CREATED)
+        
+    #     return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+    def post(self, request, *args, **kwargs):
+        try:
+            serializer = EmailSubmissionSerializer(data=request.data)
+            serializer.is_valid(raise_exception=True)
+
+            email = serializer.validated_data["email"]
+            group = serializer.validated_data["stakeholder_group"]
+            existing_stakeholder = serializer.validated_data["existing_stakeholder"]
+            existing_invitation = serializer.validated_data["existing_invitation"]
+
+            # 1) Stakeholder already exists in this group
+            if existing_stakeholder:
+                if existing_stakeholder.is_registered and existing_stakeholder.user:
+                    existing_stakeholder.last_login = timezone.now()
+                    existing_stakeholder.save(update_fields=["last_login"])
+                    return Response(
+                        {
                             "action": "auto_login",
                             "message": "Welcome back! You have been logged in automatically.",
                             "stakeholder_id": str(existing_stakeholder.id),
-                            "redirect_url": "/stakeholder/dashboard/"
-                        }, status=status.HTTP_200_OK)
-                else:
-                    # Stakeholder exists but not registered - redirect to registration
-                    return Response({
+                            "redirect_url": "/stakeholder/dashboard/",
+                        },
+                        status=status.HTTP_200_OK,
+                    )
+                # not registered yet → complete registration
+                return Response(
+                    {
                         "action": "complete_registration",
                         "message": "Please complete your registration.",
                         "email": email,
-                        "token": str(serializer.validated_data['token']),
-                        "redirect_url": "/stakeholder/register/"
-                    }, status=status.HTTP_200_OK)
-            else:
-                # New stakeholder - create and redirect to registration
-                stakeholder = Stakeholder.objects.create(
-                    email=email,
-                    group=stakeholder_group,
-                    is_registered=False,
-                    status='pending'
+                        "token": str(existing_stakeholder.id),  # you use stakeholder.id at /register
+                        "redirect_url": "/stakeholder/register/",
+                    },
+                    status=status.HTTP_200_OK,
                 )
-                
-                # Create or update stakeholder invitation
-                invitation, created = StakeholderInvitation.objects.get_or_create(
+
+            # 2) Invitation already exists in this group for this email
+            if existing_invitation:
+                with transaction.atomic():
+                    # ensure invitation is linked to a stakeholder
+                    if not existing_invitation.stakeholder:
+                        st, _ = Stakeholder.objects.get_or_create(
+                            email=email,
+                            group=group,
+                            defaults={"is_registered": False, "status": "pending"},
+                        )
+                        existing_invitation.stakeholder = st
+                    # mark clicked
+                    existing_invitation.status = "clicked"
+                    existing_invitation.clicked_at = timezone.now()
+                    existing_invitation.save(update_fields=["stakeholder", "status", "clicked_at"])
+
+                st = existing_invitation.stakeholder
+                if st and st.is_registered and st.user:
+                    st.last_login = timezone.now()
+                    st.save(update_fields=["last_login"])
+                    return Response(
+                        {
+                            "action": "auto_login",
+                            "message": "Welcome back! You have been logged in automatically.",
+                            "stakeholder_id": str(st.id),
+                            "redirect_url": "/stakeholder/dashboard/",
+                        },
+                        status=status.HTTP_200_OK,
+                    )
+                return Response(
+                    {
+                        "action": "complete_registration",
+                        "message": "Please complete your registration.",
+                        "email": email,
+                        "token": str(st.id) if st else "",
+                        "redirect_url": "/stakeholder/register/",
+                    },
+                    status=status.HTTP_200_OK,
+                )
+
+            # 3) Nothing exists → create Stakeholder + Invitation
+            with transaction.atomic():
+                stakeholder, _ = Stakeholder.objects.get_or_create(
                     email=email,
-                    stakeholder_group=stakeholder_group,
+                    group=group,
+                    defaults={"is_registered": False, "status": "pending"},
+                )
+
+                # Create/update invitation (idempotent)
+                StakeholderInvitation.objects.update_or_create(
+                    email=email,
+                    stakeholder_group=group,
                     defaults={
-                        'invitation_token': serializer.validated_data['token'],
-                        'status': 'clicked',
-                        'clicked_at': timezone.now(),
-                        'expires_at': timezone.now() + timezone.timedelta(days=7),
-                        'sent_by': stakeholder_group.created_by,
-                        'stakeholder': stakeholder
-                    }
+                        "invitation_token": uuid.uuid4(),  # your model has unique=True
+                        "status": "clicked",
+                        "clicked_at": timezone.now(),
+                        "expires_at": timezone.now() + timezone.timedelta(days=7),
+                        "sent_by": group.created_by,
+                        "stakeholder": stakeholder,
+                    },
                 )
-                
-                if not created:
-                    invitation.status = 'clicked'
-                    invitation.clicked_at = timezone.now()
-                    invitation.stakeholder = stakeholder
-                    invitation.save()
-                
-                return Response({
+
+            return Response(
+                {
                     "action": "register",
                     "message": "Please complete your registration.",
                     "email": email,
-                    # "token": str(serializer.validated_data['token']),
-                    "token" : str(stakeholder.id),
-                    "redirect_url": "/stakeholder/register/"
-                }, status=status.HTTP_201_CREATED)
-        
-        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+                    "token": str(stakeholder.id),  # used by your /register flow
+                    "redirect_url": "/stakeholder/register/",
+                },
+                status=status.HTTP_201_CREATED,
+            )
 
+        except ValidationError as exc:
+            return Response(exc.detail, status=status.HTTP_400_BAD_REQUEST)
+        except IntegrityError as ie:
+            logger.exception("IntegrityError in EmailSubmitView for %s", request.data.get("email"))
+            return Response({"detail": "Integrity error", "db_error": str(ie)}, status=status.HTTP_409_CONFLICT)
+        except Exception:
+            logger.exception("Unhandled error in EmailSubmitView")
+            return Response({"detail": "Unexpected server error"}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
 # class StakeholderRegistrationView(APIView):
 #     """Handle stakeholder registration"""
@@ -1870,46 +1996,214 @@ class StakeholderRegistrationView(APIView):
 #                 })
         
 #         return response
-class StakeholderApprovalView(UpdateAPIView):
-    """Client admin approval of stakeholders"""
-    queryset = Stakeholder.objects.all()
-    serializer_class = StakeholderApprovalSerializer
-    permission_classes = [IsAuthenticated]
-    lookup_field = 'id'
+# class StakeholderApprovalView(UpdateAPIView):
+#     """Client admin approval of stakeholders"""
+#     queryset = Stakeholder.objects.all()
+#     serializer_class = StakeholderApprovalSerializer
+#     permission_classes = [IsAuthenticated]
+#     lookup_field = 'id'
     
-    def get_queryset(self):
-        # Filter stakeholders based on client admin's client
-        user = self.request.user
-        if hasattr(user, 'client') and user.client:
-            return Stakeholder.objects.filter(group__client=user.client)
-        return Stakeholder.objects.none()
+#     def get_queryset(self):
+#         # Filter stakeholders based on client admin's client
+#         user = self.request.user
+#         if hasattr(user, 'client') and user.client:
+#             return Stakeholder.objects.filter(group__client=user.client)
+#         return Stakeholder.objects.none()
     
-    def update(self, request, *args, **kwargs):
-        response = super().update(request, *args, **kwargs)
+#     def update(self, request, *args, **kwargs):
+#         response = super().update(request, *args, **kwargs)
         
-        if response.status_code == status.HTTP_200_OK:
-            stakeholder = self.get_object()
-            action = request.data.get('status')
+#         if response.status_code == status.HTTP_200_OK:
+#             stakeholder = self.get_object()
+#             action = request.data.get('status')
             
-            if action == 'approved':
-                # Count ESG responses created
-                esg_count = 0
-                if stakeholder.user:
-                    esg_count = stakeholder.user.user_esg_responses.count()
+#             if action == 'approved':
+#                 # Count ESG responses created
+#                 esg_count = 0
+#                 if stakeholder.user:
+#                     esg_count = stakeholder.user.user_esg_responses.count()
                 
-                response.data.update({
-                    "message": f"Stakeholder {stakeholder.email} has been approved and can now access the system.",
-                    "user_created": True,
-                    "esg_responses_created": esg_count
-                })
-            else:
-                response.data.update({
-                    "message": f"Stakeholder {stakeholder.email} has been rejected."
-                })
+#                 response.data.update({
+#                     "message": f"Stakeholder {stakeholder.email} has been approved and can now access the system.",
+#                     "user_created": True,
+#                     "esg_responses_created": esg_count
+#                 })
+#             else:
+#                 response.data.update({
+#                     "message": f"Stakeholder {stakeholder.email} has been rejected."
+#                 })
         
-        return response
+#         return response
+from django.utils.crypto import get_random_string
+from core_apps.esg.models import ESGQuestion, ESGQuestionResponse, ESGYear
+class StakeholderApprovalView(APIView):
+    """Handle approval of a pending stakeholder."""
+    
+    
+    permission_classes = [IsAuthenticated]
 
+    def create_esg_responses_for_user(self, user):
+        """
+        Create ESGQuestionResponse records for a client admin user
+        """
+        # Get current ESG year
+        current_year = ESGYear.get_current_year()
+        
+        if not current_year:
+            logger.warning("No current ESG year found, skipping ESG response creation")
+            return
+        
+        # Get all active ESG questions for the current year
+        active_questions = ESGQuestion.objects.filter(
+            year=current_year,
+            is_active=True
+        ).select_related('category')
+        
+        if not active_questions.exists():
+            logger.warning(f"No active ESG questions found for year {current_year.year}")
+            return
+        
+        # Create ESGQuestionResponse records
+        responses_to_create = []
+        for question in active_questions:
+            response = ESGQuestionResponse(
+                question=question,
+                user=user,
+                questionnaire_type='stakeholder',
+                status='draft'
+            )
+            responses_to_create.append(response)
+        
+        # Bulk create for better performance
+        created_responses = ESGQuestionResponse.objects.bulk_create(
+            responses_to_create, 
+            ignore_conflicts=True
+        )
+        print(f"Created {len(responses_to_create)} ESG question responses for {user.email}")
+        logger.info(f"Created {len(responses_to_create)} ESG question responses for {user.email}")
+        return created_responses
+    
+    def post(self, request, stakeholder_id):
+        # try:
+        #     # Fetch the stakeholder by ID
+        #     stakeholder = Stakeholder.objects.get(id=stakeholder_id)
+            
+        #     # Ensure the stakeholder is in 'pending' status
+        #     if stakeholder.status != 'pending':
+        #         return Response(
+        #             {"detail": "Stakeholder is not in pending status."},
+        #             status=status.HTTP_400_BAD_REQUEST
+        #         )
+            
+        #     # Update the stakeholder status to 'approved'
+        #     stakeholder.status = 'approved'
+        #     stakeholder.save(update_fields=["status"])
 
+        #     auto_pwd  = get_random_string(32)
+        #     try:
+        #         user_obj   = User.objects.create_user(
+        #             # username=auto_user,
+        #             email=stakeholder.email,
+        #             first_name=stakeholder.first_name,
+        #             last_name=stakeholder.last_name,
+        #             password=auto_pwd,
+        #             role="stakeholder",
+        #             client=stakeholder.group.client,
+        #             is_active=True,
+        #         )
+        #         stakeholder.user = user_obj
+        #         stakeholder.save()
+        #         self.create_esg_responses_for_user(user_obj)
+        #     except Exception as e:
+        #         logger.error(f"Failed to create ESG responses for {user_obj.email}: {e}")
+        #     return Response(
+        #         {
+        #             "message": f"Stakeholder {stakeholder.email} has been approved successfully.",
+        #             "stakeholder_id": str(stakeholder.id),
+        #         },
+        #         status=status.HTTP_200_OK
+        #     )
+        
+        # except Stakeholder.DoesNotExist:
+        #     return Response(
+        #         {"detail": "Stakeholder not found."},
+        #         status=status.HTTP_404_NOT_FOUND
+        #     )
+        # except Exception as e:
+        #     return Response(
+        #         {"detail": f"An error occurred: {str(e)}"},
+        #         status=status.HTTP_500_INTERNAL_SERVER_ERROR
+        #     )
+        try:
+            # Fetch the stakeholder by ID
+            stakeholder = Stakeholder.objects.get(id=stakeholder_id)
+            
+            # Ensure the stakeholder is in 'pending' status
+            if stakeholder.status != 'pending':
+                return Response(
+                    {"detail": "Stakeholder is not in pending status."},
+                    status=status.HTTP_400_BAD_REQUEST
+                )
+            
+            # Update the stakeholder status to 'approved'
+            stakeholder.status = 'approved'
+            stakeholder.save(update_fields=["status"])
+
+            auto_pwd = get_random_string(32)  # Generate a random password
+
+            try:
+                # Create the user associated with the stakeholder
+                
+                user_obj = UserData.objects.create_user(
+                    email=stakeholder.email,
+                    first_name=stakeholder.first_name,
+                    last_name=stakeholder.last_name,
+                    password=auto_pwd,
+                    role="stakeholder",   
+                    client=stakeholder.group.client,
+                    is_active=True,
+                )
+
+                # After user creation, associate the user with the stakeholder
+                stakeholder.user = user_obj
+                stakeholder.save()
+
+                # Optionally, create ESG responses for the user (if necessary)
+                self.create_esg_responses_for_user(user_obj)
+
+                # Return success response
+                return Response(
+                    {
+                        "message": f"Stakeholder {stakeholder.email} has been approved successfully.",
+                        "stakeholder_id": str(stakeholder.id),
+                    },
+                    status=status.HTTP_200_OK
+                )
+            except Exception as e:
+                # Log error details for user creation or other issues
+                logger.error(f"Error creating user for stakeholder {stakeholder.email}: {e}")
+
+                # Rollback the status change if user creation fails
+                stakeholder.status = 'pending'  # Revert the status back to 'pending'
+                stakeholder.save(update_fields=["status"])
+
+                return Response(
+                    {"detail": f"An error occurred while creating the user: {str(e)}"},
+                    status=status.HTTP_500_INTERNAL_SERVER_ERROR
+                )
+
+        except Stakeholder.DoesNotExist:
+            return Response(
+                {"detail": "Stakeholder not found."},
+                status=status.HTTP_404_NOT_FOUND
+            )
+        except Exception as e:
+            logger.error(f"Unexpected error: {str(e)}")
+            return Response(
+                {"detail": f"An error occurred: {str(e)}"},
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR
+            )
+        
 class PendingStakeholdersView(ListAPIView):
     """List pending stakeholders for client admin approval"""
     serializer_class = UpdatedStakeholderSerializer
@@ -2302,7 +2596,7 @@ class StakeholderLoginRequestView(APIView):
 """
 Verify the Stakeholder token
 """
-from core_apps.user_auth.models import User as UserData
+
 @method_decorator(never_cache, name='dispatch')
 class StakeholderUserTokenLoginView(APIView):
     """Handle stakeholder login via token"""

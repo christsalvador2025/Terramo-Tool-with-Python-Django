@@ -7,7 +7,7 @@ from django.db.models.functions import Lower
 from django.utils.translation import gettext_lazy as _
 from .managers import UserManager
 from django.conf import settings
-
+from core_apps.clients.models import Client
 
 class UserRole(models.TextChoices):
     TERRAMO_ADMIN = 'terramo_admin', 'Terramo Admin'
@@ -35,7 +35,7 @@ class User(AbstractUser):
     )
     # Client ForeignKey: null=True, blank=True allows Terramo Admins to have no client
     client = models.ForeignKey(
-        'clients.Client', 
+        Client, 
         on_delete=models.CASCADE, 
         null=True,        
         blank=True,       

@@ -249,18 +249,49 @@ class ClientListSerializer(serializers.ModelSerializer):
 
 
 # Bulk update serializers
+# class BulkESGResponseUpdateSerializer(serializers.Serializer):
+#     """Serializer for bulk updating ESG responses"""
+#     responses = serializers.ListField(
+#         child=serializers.DictField()
+#     )
+    
+#     def validate_responses(self, value):
+#         required_fields = ['question_id', 'priority', 'status_quo']
+#         for response in value:
+#             for field in required_fields:
+#                 if field not in response:
+#                     raise serializers.ValidationError(
+#                         f"Missing required field '{field}' in response"
+#                     )
+#         return value
+
+class ResponseItemSerializer(serializers.Serializer):
+    question_id = serializers.UUIDField()
+    # Optional and nullable; 0..4 when present
+    priority = serializers.IntegerField(
+        required=False, allow_null=True, min_value=0, max_value=4
+    )
+    status_quo = serializers.IntegerField(
+        required=False, allow_null=True, min_value=0, max_value=4
+    )
+    comment = serializers.CharField(
+        required=False, allow_blank=True, allow_null=True
+    )
+
 class BulkESGResponseUpdateSerializer(serializers.Serializer):
     """Serializer for bulk updating ESG responses"""
-    responses = serializers.ListField(
-        child=serializers.DictField()
-    )
-    
-    def validate_responses(self, value):
-        required_fields = ['question_id', 'priority', 'status_quo']
-        for response in value:
-            for field in required_fields:
-                if field not in response:
-                    raise serializers.ValidationError(
-                        f"Missing required field '{field}' in response"
-                    )
-        return value
+    status = serializers.ChoiceField(choices=["draft", "submitted"])
+    responses = ResponseItemSerializer(many=True)
+
+    def validate(self, data):
+        responses = data.get("responses", [])
+        if not responses:
+            raise serializers.ValidationError("responses cannot be empty")
+
+        # Each item must update at least one field
+        for idx, item in enumerate(responses):
+            if all(k not in item for k in ("priority", "status_quo", "comment")):
+                raise serializers.ValidationError(
+                    f"responses[{idx}] must include at least one of priority, status_quo, or comment"
+                )
+        return data

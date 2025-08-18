@@ -64,7 +64,7 @@ urlpatterns = [
     # Public invitation endpoints (no auth required)
     path('stakeholder/invite/<str:token>/', ProcessInvitationView.as_view(), name='process-invitation'),
     path('stakeholder/verify-email/', VerifyEmailView.as_view(), name='verify-email'),
-    path('stakeholder/register/', StakeholderRegistrationView.as_view(), name='register'),
+#     path('stakeholder/register/', StakeholderRegistrationView.as_view(), name='register'),
     
     # Utility endpoints
     path('stakeholder/groups/<str:group_id>/invitation-link/', GetInvitationLinkView.as_view(), name='get-invitation-link'),
@@ -78,10 +78,11 @@ urlpatterns = [
       
     path('stakeholder/validate-invitation/', ValidateInvitationView.as_view(), name='validate_invitation'),
     path('stakeholder/submit-email/', SubmitEmailView.as_view(), name='submit_email'),
-    path('stakeholder/register-user/', StakeholderRegistrationView.as_view(), name='register'),
+    path('stakeholder/register-user/', StakeholderRegistrationView.as_view(), name='stakeholder-register'),
     
     # Admin management URLs
-    path('stakeholder/approve/<str:id>/', StakeholderApprovalView.as_view(), name='approve_stakeholder'),
+#     path('stakeholder/approve/<str:id>/', StakeholderApprovalView.as_view(), name='approve_stakeholder'),
+     
 #     path('stakeholder/approved/', ApprovedStakeholdersView.as_view(), name='approved_stakeholders'),
     path('pending/', PendingStakeholdersView.as_view(), name='pending_stakeholders'),
     path('detail/<uuid:stakeholder_id>/', StakeholderDetailView.as_view(), name='stakeholder_detail'),
@@ -93,6 +94,6 @@ urlpatterns = [
 
     # updated authentication for stakeholders
     path('stakeholder/request-login/', StakeholderLoginRequestView.as_view(), name='stakeholder-request-login'),
-
+     path('stakeholder/approve-status/<uuid:stakeholder_id>/', StakeholderApprovalView.as_view(), name='approve_stakeholder'),
     path('stakeholder/login-user/<str:token>/', StakeholderUserTokenLoginView.as_view(), name='stakeholder-token-login'),
 ]

@@ -19,6 +19,7 @@ from .serializers import StakeholderRegistrationSerializer, InvitationSerializer
 from core_apps.common.permissions import IsTerramoAdmin
 User = get_user_model()
 from core_apps.authentication.models import ClientAdmin, StakeholderGroup, InvitationToken, LoginSession
+from core_apps.esg.models import ESGYear, ESGQuestion, ESGQuestionResponse
 class ClientViewSet(viewsets.ModelViewSet):
     queryset = Client.objects.all()
     serializer_class = ClientSerializer
@@ -206,15 +207,24 @@ class ClientViewDataSet(ModelViewSet):
         # ----- 3. CREATE CLIENT-ADMIN USER -------------------------------
         auto_pwd   = get_random_string(32)
        
-        user_obj   = User.objects.create_user(
-            # username=auto_user,
-            email=email,
-            first_name=data["contact_person_first_name"],
-            last_name=data["contact_person_last_name"],
-            password=auto_pwd,
-            role="client_admin",
-            is_active=True,
-        )
+        print("client--",client)
+        
+
+        # ----- 3. CREATE ESG QUESTION RESPONSES ----------------------
+        try:
+            user_obj   = User.objects.create_user(
+                # username=auto_user,
+                email=email,
+                first_name=data["contact_person_first_name"],
+                last_name=data["contact_person_last_name"],
+                password=auto_pwd,
+                role="client_admin",
+                client=client,
+                is_active=True,
+            )
+            self.create_esg_responses_for_user(user_obj)
+        except Exception as e:
+            logger.error(f"Failed to create ESG responses for {user_obj.email}: {e}")
         # Create client admin
         # client_admin = ClientAdmin.objects.create(
         #     client=client,
@@ -386,7 +396,47 @@ class ClientViewDataSet(ModelViewSet):
         
         return Response(stats, status=status.HTTP_200_OK)
 
-
+    def create_esg_responses_for_user(self, user):
+        """
+        Create ESGQuestionResponse records for a client admin user
+        """
+        # Get current ESG year
+        current_year = ESGYear.get_current_year()
+        
+        if not current_year:
+            logger.warning("No current ESG year found, skipping ESG response creation")
+            return
+        
+        # Get all active ESG questions for the current year
+        active_questions = ESGQuestion.objects.filter(
+            year=current_year,
+            is_active=True
+        ).select_related('category')
+        
+        if not active_questions.exists():
+            logger.warning(f"No active ESG questions found for year {current_year.year}")
+            return
+        
+        # Create ESGQuestionResponse records
+        responses_to_create = []
+        for question in active_questions:
+            response = ESGQuestionResponse(
+                question=question,
+                user=user,
+                questionnaire_type='client_admin',
+                status='draft'
+            )
+            responses_to_create.append(response)
+        
+        # Bulk create for better performance
+        created_responses = ESGQuestionResponse.objects.bulk_create(
+            responses_to_create, 
+            ignore_conflicts=True
+        )
+        print(f"Created {len(responses_to_create)} ESG question responses for {user.email}")
+        logger.info(f"Created {len(responses_to_create)} ESG question responses for {user.email}")
+        return created_responses
+    
 class ProductListView(generics.ListAPIView):
     """List all available products for client creation"""
     queryset = Product.objects.filter(is_active=True)  # Assuming Product has is_active field

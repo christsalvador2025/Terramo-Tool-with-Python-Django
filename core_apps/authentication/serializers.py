@@ -487,35 +487,79 @@ class InvitationValidationSerializer(serializers.Serializer):
             raise serializers.ValidationError("Invalid or expired invitation token.")
 
 
-class EmailSubmissionSerializer(serializers.Serializer):
-    """Serializer for email submission in invitation process"""
-    email = serializers.EmailField()
-    token = serializers.UUIDField()
+# class EmailSubmissionSerializer(serializers.Serializer):
+#     """Serializer for email submission in invitation process"""
+#     email = serializers.EmailField()
+#     token = serializers.UUIDField()
     
-    def validate(self, data):
-        email = data['email']
-        token = data['token']
+#     def validate(self, data):
+#         email = data['email']
+#         token = data['token']
         
-        # Validate token exists
+#         # Validate token exists
+#         try:
+#             stakeholder_group = StakeholderGroup.objects.get(
+#                 invitation_token=token, 
+#                 is_active=True
+#             )
+#         except StakeholderGroup.DoesNotExist:
+#             raise serializers.ValidationError("Invalid invitation token.")
+        
+#         # Check if email already exists in this group
+#         existing_stakeholder = Stakeholder.objects.filter(
+#             email=email, 
+#             group=stakeholder_group
+#         ).first()
+        
+#         data['stakeholder_group'] = stakeholder_group
+#         data['existing_stakeholder'] = existing_stakeholder
+        
+#         return data
+
+class EmailSubmissionSerializer(serializers.Serializer):
+    """Serializer for email submission in invitation process."""
+    email = serializers.EmailField()
+    token = serializers.UUIDField()  # StakeholderGroup.invitation_token
+
+    def validate(self, attrs):
+        # normalize email
+        email = (attrs.get("email") or "").strip().lower()
+        token = attrs.get("token")
+
+        # find active group via invitation token
         try:
             stakeholder_group = StakeholderGroup.objects.get(
-                invitation_token=token, 
-                is_active=True
+                invitation_token=token,
+                is_active=True,
             )
         except StakeholderGroup.DoesNotExist:
-            raise serializers.ValidationError("Invalid invitation token.")
-        
-        # Check if email already exists in this group
-        existing_stakeholder = Stakeholder.objects.filter(
-            email=email, 
-            group=stakeholder_group
-        ).first()
-        
-        data['stakeholder_group'] = stakeholder_group
-        data['existing_stakeholder'] = existing_stakeholder
-        
-        return data
+            raise serializers.ValidationError({"token": ["Invalid invitation token."]})
 
+        # existing Stakeholder in this group?
+        existing_stakeholder = (
+            Stakeholder.objects
+            .filter(email__iexact=email, group=stakeholder_group)
+            .select_related("user")
+            .first()
+        )
+
+        # existing Invitation in this group?
+        existing_invitation = (
+            StakeholderInvitation.objects
+            .filter(email__iexact=email, stakeholder_group=stakeholder_group)
+            .select_related("stakeholder")
+            # no created_at field on your model; order by most recent activity you have
+            .order_by("-clicked_at", "-sent_at", "-id")
+            .first()
+        )
+
+        attrs.update({
+            "email": email,
+            "stakeholder_group": stakeholder_group,
+            "existing_stakeholder": existing_stakeholder,
+            "existing_invitation": existing_invitation,
+        })
+        return attrs
 # class StakeholderRegistrationSerializer(serializers.Serializer):
 #     """Serializer for stakeholder registration"""
 #     # email = serializers.EmailField(read_only=True)  # Email is already provided from previous step
@@ -596,15 +640,19 @@ class StakeholderRegistrationSerializer(serializers.Serializer):
 
     def validate(self, data):
         try:
+            print(f"data['token']---{data['token']}")
             stakeholder = Stakeholder.objects.get(
                 id=data['token'],
                 is_registered=False
             )
+            print(f"stakeholder...")
         except Stakeholder.DoesNotExist:
+
             raise serializers.ValidationError({
                 "token": ["Invalid or expired invitation token."]
             })
-
+        except Exception as e:
+            print(e)
         # Email is now for informational purposes only
         data['stakeholder'] = stakeholder
         

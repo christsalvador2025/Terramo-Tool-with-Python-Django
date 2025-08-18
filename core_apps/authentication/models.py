@@ -226,7 +226,7 @@ class StakeholderInvitation(models.Model):
         return f"Invitation to {self.email} for {self.stakeholder_group.name}"
     
     def get_invitation_url(self):
-        return f"{settings.DOMAIN}/stakeholder/invite/{self.invitation_token}/"
+        return f"{settings.FRONTEND_DOMAIN_URL}/stakeholder/invite/{self.invitation_token}/"
     
     @property
     def is_expired(self):

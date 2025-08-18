@@ -650,7 +650,10 @@ class LogoutView(APIView):
         response.delete_cookie('access', path=settings.COOKIE_PATH)
         response.delete_cookie('refresh', path=settings.COOKIE_PATH)
         response.delete_cookie('logged_in', path=settings.COOKIE_PATH)
-        
+        response.delete_cookie('user', path=settings.COOKIE_PATH)
+        # response.delete_cookie('user_id', path=settings.COOKIE_PATH)
+        # response.delete_cookie('user_email', path=settings.COOKIE_PATH)
+
         return response
     
 class LogoutAPIView(APIView):
