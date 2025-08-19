@@ -111,4 +111,31 @@ urlpatterns = [
     path('stakeholder-groups/', 
          StakeholderGroupListView.as_view(), 
          name='stakeholder-groups')
+
+     # -------------------------- START: stakeholders approval, pending, and reject --------------
+     """
+     # Stakeholder approval endpoints
+     path(
+          'stakeholders/pending/', 
+          StakeholderApprovalViewSet.as_view({'get': 'list_pending_stakeholders'}), 
+          name='list-pending-stakeholders'
+     ),
+     path(
+          'stakeholders/<uuid:stakeholder_id>/approve/', 
+          StakeholderApprovalViewSet.as_view({'post': 'approve_stakeholder'}), 
+          name='approve-stakeholder'
+     ),
+     path(
+          'stakeholders/<uuid:stakeholder_id>/reject/', 
+          StakeholderApprovalViewSet.as_view({'post': 'reject_stakeholder'}), 
+          name='reject-stakeholder'
+     ),
+     path(
+          'stakeholders/<uuid:stakeholder_id>/resend-invitation/', 
+          StakeholderApprovalViewSet.as_view({'post': 'resend_invitation'}), 
+          name='resend-stakeholder-invitation'
+     ),
+     """
+     # -------------------------- END: stakeholders approval, pending, and reject --------------
+
 ]
