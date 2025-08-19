@@ -110,6 +110,13 @@ urlpatterns = [
     path('dashboard/bulk-update/', ESGDashboardViewSet.as_view({'post': 'bulk_update_responses'}), name='esg-bulk-update'),
     path('dashboard/question-averages/', ESGDashboardViewSet.as_view({'get': 'question_averages'}), name='esg-question-averages'),
     
+    # stakeholders analysis
+    # path('dashboard/client-admin/stakeholders-analysis', ESGDashboardViewSet.as_view({'get': 'client_admin_stakeholder_analysis'}), name='esg-client-admin-dashboard'),
+    path(
+        'dashboard/client-admin/stakeholders-analysis/', 
+        ESGDashboardViewSet.as_view({'get': 'client_admin_stakeholder_analysis'}), 
+        name='esg-client-admin-stakeholders-analysis'
+    ),
 ]
 
 # The router will automatically generate these URLs:

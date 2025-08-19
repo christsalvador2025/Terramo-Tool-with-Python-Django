@@ -1234,6 +1234,12 @@ class UpdatedStakeholderSerializer(serializers.ModelSerializer):
         }
 
 class UpdatedStakeholderGroupSerializer(serializers.ModelSerializer):
+    invite_url = serializers.SerializerMethodField()
     class Meta:
         model = StakeholderGroup
-        fields = ['id', 'name', 'is_active', 'created_at']
+        fields = ['id', 'name', 'is_active', 'invitation_token','invite_url','created_at']
+    def get_invite_url(self, obj):
+    
+        return obj.get_invite_full_url()
+
+ 

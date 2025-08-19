@@ -1074,259 +1074,7 @@ class ESGDashboardViewSet(viewsets.ViewSet):
             'current_year': current_year.year
         })
 
-    # @action(detail=False, methods=['get'])
-    # def client_admin_dashboard(self, request):
-    #     """Dashboard for client admin users"""
-    #     user = request.user
-        
-    #     # Get user's client
-    #     try:
-    #         client = user.client
-    #     except AttributeError:
-    #         return Response({'error': 'User is not associated with a client'}, 
-    #                       status=status.HTTP_403_FORBIDDEN)
-
-    #     # Get current year
-    #     current_year = ESGYear.get_current_year()
-    #     if not current_year:
-    #         return Response({'error': 'No current ESG year set'}, 
-    #                       status=status.HTTP_400_BAD_REQUEST)
-
-    #     # Get or create survey for client
-    #     survey, created = ESGSurvey.objects.get_or_create(
-    #         client=client,
-    #         year=current_year.year,
-    #         defaults={
-    #             'title': f'ESG-Check - {current_year.year}',
-    #             'created_by': user,
-    #             'status': 'active'
-    #         }
-    #     )
-
-    #     # Get questions and responses
-    #     categories = ESGCategory.objects.filter(is_active=True).order_by('name')
-    #     questions = ESGQuestion.objects.filter(
-    #         year=current_year,
-    #         is_active=True
-    #     ).select_related('category').order_by('category', 'order', 'index_code')
-
-    #     # Get user's responses
-    #     user_responses = {}
-    #     responses = ESGQuestionResponse.objects.filter(
-    #         user=user,
-    #         question__year=current_year,
-    #         questionnaire_type='client_admin'
-    #     ).select_related('question')
-
-    #     for response in responses:
-    #         user_responses[response.question.id] = {
-    #             'id': response.id,
-    #             'priority': response.priority,
-    #             'status_quo': response.status_quo,
-    #             'comment': response.comment,
-    #             'priority_display': response.get_priority_display(),
-    #             'status_quo_display': response.get_status_quo_display(),
-    #             'is_answered': response.is_answered,
-    #             'completion_score': response.completion_score
-    #         }
-
-    #     # Create responses for questions without responses
-    #     questions_without_responses = questions.exclude(
-    #         id__in=user_responses.keys()
-    #     )
-        
-    #     new_responses = []
-    #     for question in questions_without_responses:
-    #         new_responses.append(
-    #             ESGQuestionResponse(
-    #                 question=question,
-    #                 user=user,
-    #                 questionnaire_type='client_admin'
-    #             )
-    #         )
-        
-    #     if new_responses:
-    #         ESGQuestionResponse.objects.bulk_create(new_responses)
-    #         # Refresh user_responses
-    #         for question in questions_without_responses:
-    #             user_responses[question.id] = {
-    #                 'id': None,
-    #                 'priority': 0,
-    #                 'status_quo': 0,
-    #                 'comment': '',
-    #                 'priority_display': 'Not Started',
-    #                 'status_quo_display': 'Not Started',
-    #                 'is_answered': False,
-    #                 'completion_score': 0.0
-    #             }
-
-    #     # Group questions by category
-    #     questions_by_category = {}
-    #     for category in categories:
-    #         category_questions = questions.filter(category=category)
-    #         questions_by_category[category.name] = {
-    #             'category_info': ESGCategorySerializer(category).data,
-    #             'questions': []
-    #         }
-            
-    #         for question in category_questions:
-    #             question_data = ESGQuestionSerializer(question).data
-    #             question_data['user_response'] = user_responses.get(question.id, {})
-    #             questions_by_category[category.name]['questions'].append(question_data)
-
-    #     # Calculate completion stats
-    #     total_questions = questions.count()
-    #     answered_questions = sum(1 for resp in user_responses.values() if resp['is_answered'])
-    #     completion_rate = (answered_questions / total_questions * 100) if total_questions > 0 else 0
-
-    #     # Get client averages including this user's responses
-    #     averages = self._calculate_client_averages(client, current_year)
-
-    #     return Response({
-    #         'survey': ESGSurveySerializer(survey).data,
-    #         'categories': ESGCategorySerializer(categories, many=True).data,
-    #         'questions_by_category': questions_by_category,
-    #         'completion_stats': {
-    #             'total_questions': total_questions,
-    #             'answered_questions': answered_questions,
-    #             'completion_rate': round(completion_rate, 2)
-    #         },
-    #         'client_averages': averages,
-    #         'current_year': current_year.year
-    #     })
-    
-    # @action(detail=False, methods=['get'])
-    # def client_admin_dashboard(self, request):
-    #     """Dashboard for client admin users"""
-    #     user = request.user
-        
-    #     # Get user's client
-    #     try:
-    #         client = user.client
-    #     except AttributeError:
-    #         return Response({'error': 'User is not associated with a client'}, 
-    #                         status=status.HTTP_403_FORBIDDEN)
-
-    #     # Get current year
-    #     current_year = ESGYear.get_current_year()
-    #     if not current_year:
-    #         return Response({'error': 'No current ESG year set'}, 
-    #                         status=status.HTTP_400_BAD_REQUEST)
-
-    #     # Get or create survey for client
-    #     survey, created = ESGSurvey.objects.get_or_create(
-    #         client=client,
-    #         year=current_year.year,
-    #         defaults={
-    #             'title': f'ESG-Check - {current_year.year}',
-    #             'created_by': user,
-    #             'status': 'active'
-    #         }
-    #     )
-
-    #     # Get questions and responses
-    #     categories = ESGCategory.objects.filter(is_active=True).order_by('name')
-    #     questions = ESGQuestion.objects.filter(
-    #         year=current_year,
-    #         is_active=True
-    #     ).select_related('category').order_by('category', 'order', 'index_code')
-
-    #     # Get user's responses
-    #     user_responses = {}
-    #     responses = ESGQuestionResponse.objects.filter(
-    #         user=user,
-    #         question__year=current_year,
-    #         questionnaire_type='client_admin'
-    #     ).select_related('question')
-
-    #     for response in responses:
-    #         user_responses[response.question.id] = {
-    #             'id': response.id,
-    #             'priority': response.priority,
-    #             'status_quo': response.status_quo,
-    #             'comment': response.comment,
-    #             'priority_display': response.get_priority_display(),
-    #             'status_quo_display': response.get_status_quo_display(),
-    #             'is_answered': response.is_answered,
-    #             'completion_score': response.completion_score
-    #         }
-
-    #     # Create responses for questions without responses
-    #     questions_without_responses = questions.exclude(
-    #         id__in=user_responses.keys()
-    #     )
-        
-    #     new_responses = []
-    #     for question in questions_without_responses:
-    #         new_responses.append(
-    #             ESGQuestionResponse(
-    #                 question=question,
-    #                 user=user,
-    #                 questionnaire_type='client_admin'
-    #             )
-    #         )
-        
-    #     # FIX: Use `bulk_create` with `ignore_conflicts=True` to avoid the IntegrityError
-    #     # This ensures that if a response was created between the .exclude() and .bulk_create() calls,
-    #     # the database will simply ignore the new response instead of raising an error.
-    #     if new_responses:
-    #         ESGQuestionResponse.objects.bulk_create(new_responses, ignore_conflicts=True)
-        
-    #     # Re-fetch all responses after the bulk_create to get the complete and updated list
-    #     # This is a safe way to ensure `user_responses` is fully up-to-date
-    #     all_user_responses = ESGQuestionResponse.objects.filter(
-    #         user=user,
-    #         question__year=current_year,
-    #         questionnaire_type='client_admin'
-    #     ).select_related('question')
-
-    #     user_responses = {
-    #         response.question.id: {
-    #             'id': response.id,
-    #             'priority': response.priority,
-    #             'status_quo': response.status_quo,
-    #             'comment': response.comment,
-    #             'priority_display': response.get_priority_display(),
-    #             'status_quo_display': response.get_status_quo_display(),
-    #             'is_answered': response.is_answered,
-    #             'completion_score': response.completion_score
-    #         } for response in all_user_responses
-    #     }
-
-    #     # Group questions by category
-    #     questions_by_category = {}
-    #     for category in categories:
-    #         category_questions = questions.filter(category=category)
-    #         questions_by_category[category.name] = {
-    #             'category_info': ESGCategorySerializer(category).data,
-    #             'questions': []
-    #         }
-            
-    #         for question in category_questions:
-    #             question_data = ESGQuestionSerializer(question).data
-    #             question_data['user_response'] = user_responses.get(question.id, {})
-    #             questions_by_category[category.name]['questions'].append(question_data)
-
-    #     # Calculate completion stats
-    #     total_questions = questions.count()
-    #     answered_questions = sum(1 for resp in user_responses.values() if resp['is_answered'])
-    #     completion_rate = (answered_questions / total_questions * 100) if total_questions > 0 else 0
-
-    #     # Get client averages including this user's responses
-    #     averages = self._calculate_client_averages(client, current_year)
-
-    #     return Response({
-    #         'survey': ESGSurveySerializer(survey).data,
-    #         'categories': ESGCategorySerializer(categories, many=True).data,
-    #         'questions_by_category': questions_by_category,
-    #         'completion_stats': {
-    #             'total_questions': total_questions,
-    #             'answered_questions': answered_questions,
-    #             'completion_rate': round(completion_rate, 2)
-    #         },
-    #         'client_averages': averages,
-    #         'current_year': current_year.year
-    #     })
+   
     @action(detail=False, methods=['get'])
     def stakeholder_dashboard(self, request):
         """Dashboard for stakeholder users"""
@@ -2186,6 +1934,498 @@ class ESGDashboardViewSet(viewsets.ViewSet):
             # 'categories': category_averages,
             'question_response': question_response
         })
+    
+
+
+   # -------------------- Stakeholder Analysis Start ------------------------------- 
+
+    # @action(detail=False, methods=['get'])
+    # def client_admin_stakeholder_analysis(self, request):
+    #     """Dashboard for client admin stakeholder analysis"""
+    #     user = request.user
+        
+    #     # Get user's client
+    #     try:
+    #         client = user.client
+    #     except AttributeError:
+    #         return Response({'error': 'User is not associated with a client'}, 
+    #                         status=status.HTTP_403_FORBIDDEN)
+
+    #     # Get current year
+    #     current_year = ESGYear.get_current_year()
+    #     if not current_year:
+    #         return Response({'error': 'No current ESG year set'}, 
+    #                         status=status.HTTP_400_BAD_REQUEST)
+
+    #     # Get categories and calculate averages for client admin (default)
+    #     category_averages = self._calculate_category_averages_stakeholder_analysis(client, current_year)
+
+    #     # Get user's ESG question responses (client admin responses)
+    #     user_responses = self._get_user_responses(user, current_year)
+
+    #     # Get all questions and ensure responses exist
+    #     questions = self._ensure_question_responses(user, current_year)
+        
+    #     # Build question_response structure grouped by category
+    #     question_response = self._build_question_response_structure(questions, user_responses)
+
+    #     # Get stakeholder groups with their data
+    #     stakeholder_groups_data = self._get_stakeholder_groups_data(client, current_year)
+
+    #     return Response({
+    #         'client': {
+    #             'id': str(client.id),
+    #             'name': client.company_name
+    #         },
+    #         'year': current_year.year,
+    #         'categories': category_averages,
+    #         'question_response': question_response,
+    #         'stakeholder_groups': stakeholder_groups_data,
+    #     })
+
+    def _get_user_responses(self, user, current_year):
+        """Get user's ESG question responses"""
+        user_responses = {}
+        responses = ESGQuestionResponse.objects.filter(
+            user=user,
+            question__year=current_year,
+            questionnaire_type='client_admin'
+        ).select_related('question', 'question__category')
+
+        for response in responses:
+            user_responses[response.question.id] = {
+                'id': response.id,
+                'priority': response.priority,
+                'status_quo': response.status_quo,
+                'comment': response.comment,
+                'priority_display': response.get_priority_display(),
+                'status_quo_display': response.get_status_quo_display(),
+                'completion_score': response.completion_score,
+                'status': response.status
+            }
+        return user_responses
+
+    def _ensure_question_responses(self, user, current_year):
+        """Ensure all questions have responses, create missing ones"""
+        questions = ESGQuestion.objects.filter(
+            year=current_year,
+            is_active=True
+        ).select_related('category').order_by('category', 'order', 'index_code')
+
+        # Get existing response question IDs
+        existing_response_ids = set(
+            ESGQuestionResponse.objects.filter(
+                user=user,
+                question__year=current_year,
+                questionnaire_type='client_admin'
+            ).values_list('question_id', flat=True)
+        )
+
+        # Create responses for questions without responses
+        questions_without_responses = questions.exclude(id__in=existing_response_ids)
+        
+        new_responses = []
+        for question in questions_without_responses:
+            new_responses.append(
+                ESGQuestionResponse(
+                    question=question,
+                    user=user,
+                    questionnaire_type='client_admin'
+                )
+            )
+        
+        if new_responses:
+            ESGQuestionResponse.objects.bulk_create(new_responses, ignore_conflicts=True)
+        
+        return questions
+
+    def _build_question_response_structure(self, questions, user_responses):
+        """Build question response structure grouped by category"""
+        question_response = {}
+        categories = ESGCategory.objects.filter(is_active=True).order_by('name')
+        
+        for category in categories:
+            category_questions = questions.filter(category=category)
+            question_response[category.name] = {
+                'category_info': {
+                    'id': str(category.id),
+                    'name': category.name,
+                    'display_name': category.display_name
+                },
+                'questions': []
+            }
+            
+            for question in category_questions:
+                user_resp = user_responses.get(question.id, {})
+                
+                question_data = {
+                    'question_id': str(question.id),
+                    'index_code': question.index_code,
+                    'measure': question.measure,
+                    'question_description': question.desription or '',
+                    'priority': user_resp.get('priority', 0),
+                    'status_quo': user_resp.get('status_quo', 0),
+                    'comment': user_resp.get('comment', ''),
+                    'priority_display': user_resp.get('priority_display', 'Not Started'),
+                    'status_quo_display': user_resp.get('status_quo_display', 'Not Started'),
+                    'completion_score': user_resp.get('completion_score', 0.0),
+                    'status': user_resp.get('status', 'draft'),
+                    'response_id': user_resp.get('id', None)
+                }
+                
+                question_response[category.name]['questions'].append(question_data)
+
+        return question_response
+
+    # def _get_stakeholder_groups_data(self, client, current_year):
+    #     """Get stakeholder groups with their response data and counts"""
+    #     # Get all stakeholder groups for this client
+    #     stakeholder_groups = StakeholderGroup.objects.filter(
+    #         client=client,
+    #         is_active=True
+    #     ).annotate(
+    #         stakeholder_count=Count('stakeholders', filter=Q(stakeholders__status='approved'))
+    #     ).order_by('name')
+
+    #     stakeholder_groups_data = []
+
+    #     # Add client admin as default group (always enabled)
+    #     # client_admin_data = {
+    #     #     'id': 'client_admin',
+    #     #     'name': 'Client Admin',
+    #     #     'display_name': 'Client Admin (Default)',
+    #     #     'stakeholder_count': 1,  # The client admin user
+    #     #     'is_default': True,
+    #     #     'has_responses': True,
+    #     #     'category_averages': self._calculate_category_averages_stakeholder_analysis(client, current_year, group_type='client_admin')
+    #     # }
+    #     # stakeholder_groups_data.append(client_admin_data)
+
+    #     default_group = 'Management'
+    #     # Add other stakeholder groups
+    #     for group in stakeholder_groups:
+    #         # Check if this group has any responses
+    #         has_responses = self._check_group_has_responses(group, current_year)
+            
+    #         # Calculate category averages for this group if they have responses
+    #         category_averages = {}
+    #         if has_responses:
+    #             category_averages = self._calculate_stakeholder_group_category_averages(group, current_year)
+
+    #         group_data = {
+    #             'id': str(group.id),
+    #             'name': group.name,
+    #             'display_name': group.name,
+    #             'stakeholder_count': group.stakeholder_count,
+    #             'is_default': group.name == default_group,
+    #             'has_responses': has_responses,
+    #             'category_averages': category_averages,
+    #             'invitation_link': group.get_invite_full_url()
+    #         }
+    #         stakeholder_groups_data.append(group_data)
+
+    #     return stakeholder_groups_data
+
+    def _check_group_has_responses(self, stakeholder_group, current_year):
+        """Check if stakeholder group has any completed responses"""
+        # Get all stakeholders in this group who are registered users
+        stakeholder_users = User.objects.filter(
+            usr_stakeholder__group=stakeholder_group,
+            usr_stakeholder__status='approved'
+        )
+
+        if not stakeholder_users.exists():
+            return False
+
+        # Check if any of these users have responses
+        # Removed is_answered=True since it's not a database field
+        return ESGQuestionResponse.objects.filter(
+            user__in=stakeholder_users,
+            question__year=current_year,
+            questionnaire_type='stakeholder',
+            status='submitted'  # Only check submitted responses
+        ).exists()
+
+    def _calculate_stakeholder_group_category_averages(self, stakeholder_group, current_year):
+        """Calculate category averages for a specific stakeholder group"""
+        # Get all stakeholder users in this group
+        stakeholder_users = User.objects.filter(
+            usr_stakeholder__group=stakeholder_group,
+            usr_stakeholder__status='approved'
+        )
+
+        if not stakeholder_users.exists():
+            return {}
+
+        # Get all categories
+        categories = ESGCategory.objects.filter(is_active=True)
+        category_averages = {}
+
+        for category in categories:
+            # Calculate averages for priority and status_quo for this category and group
+            priority_avg = ESGQuestionResponse.objects.filter(
+                user__in=stakeholder_users,
+                question__year=current_year,
+                question__category=category,
+                questionnaire_type='stakeholder',
+                status='submitted',
+                priority__gt=0  # Exclude not answered (0 values)
+            ).aggregate(avg_priority=Avg('priority'))['avg_priority'] or 0
+
+            # Removed is_answered=True filter since it's not a database field
+            status_quo_avg = ESGQuestionResponse.objects.filter(
+                user__in=stakeholder_users,
+                question__year=current_year,
+                question__category=category,
+                questionnaire_type='stakeholder',
+                status='submitted',  # Use status='submitted' instead
+                status_quo__gt=0  # Exclude not answered (0 values)
+            ).aggregate(avg_status_quo=Avg('status_quo'))['avg_status_quo'] or 0
+
+            category_averages[category.name] = {
+                'category_info': {
+                    'id': str(category.id),
+                    'name': category.name,
+                    'display_name': category.display_name
+                },
+                'priority_average': round(priority_avg, 2),
+                'status_quo_average': round(status_quo_avg, 2)
+            }
+
+        return category_averages
+
+    def _calculate_category_averages_stakeholder_analysis(self, client, current_year, group_type='client_admin'):
+        """Calculate category averages for client admin (default behavior) - stakeholder analysis specific"""
+        categories = ESGCategory.objects.filter(is_active=True)
+        category_averages = {}
+
+        for category in categories:
+            if group_type == 'client_admin':
+                # For client admin, get their responses
+                priority_avg = ESGQuestionResponse.objects.filter(
+                    user__client=client,
+                    question__year=current_year,
+                    question__category=category,
+                    questionnaire_type='client_admin',
+                    status='submitted',  # Use status instead of is_answered
+                    priority__gt=0
+                ).aggregate(avg_priority=Avg('priority'))['avg_priority'] or 0
+
+                status_quo_avg = ESGQuestionResponse.objects.filter(
+                    user__client=client,
+                    question__year=current_year,
+                    question__category=category,
+                    questionnaire_type='client_admin',
+                    status='submitted',  # Use status instead of is_answered
+                    status_quo__gt=0
+                ).aggregate(avg_status_quo=Avg('status_quo'))['avg_status_quo'] or 0
+            
+            category_averages[category.name] = {
+                'category_info': {
+                    'id': str(category.id),
+                    'name': category.name,
+                    'display_name': category.display_name
+                },
+                'priority_average': round(priority_avg, 2),
+                'status_quo_average': round(status_quo_avg, 2)
+            }
+
+    #     return category_averages
+    @action(detail=False, methods=['get'])
+    def client_admin_stakeholder_analysis(self, request):
+        """Dashboard for client admin stakeholder analysis"""
+        user = request.user
+        
+        # Get user's client
+        try:
+            client = user.client
+        except AttributeError:
+            return Response({'error': 'User is not associated with a client'}, 
+                            status=status.HTTP_403_FORBIDDEN)
+
+        # Get current year
+        current_year = ESGYear.get_current_year()
+        if not current_year:
+            return Response({'error': 'No current ESG year set'}, 
+                            status=status.HTTP_400_BAD_REQUEST)
+
+        # Get categories and calculate averages for client admin (default)
+        category_averages = self._calculate_category_averages_stakeholder_analysis(client, current_year)
+
+        # Get user's ESG question responses (client admin responses)
+        user_responses = self._get_user_responses(user, current_year)
+
+        # Get all questions and ensure responses exist
+        questions = self._ensure_question_responses(user, current_year)
+        
+        # Build question_response structure grouped by category
+        question_response = self._build_question_response_structure(questions, user_responses)
+
+        # Get stakeholder groups with their data (now includes per-question responses)
+        stakeholder_groups_data = self._get_stakeholder_groups_data(client, current_year, questions)
+
+        return Response({
+            'client': {
+                'id': str(client.id),
+                'name': client.company_name
+            },
+            'year': current_year.year,
+            'categories': category_averages,
+            'question_response': question_response,
+            'stakeholder_groups': stakeholder_groups_data,
+        })
+
+    def _get_stakeholder_groups_data(self, client, current_year, questions):
+        """Get stakeholder groups with their response data and per-question responses"""
+        # Get all stakeholder groups for this client
+        stakeholder_groups = StakeholderGroup.objects.filter(
+            client=client,
+            is_active=True
+        ).annotate(
+            stakeholder_count=Count('stakeholders', filter=Q(stakeholders__status='approved'))
+        ).order_by('name')
+
+        stakeholder_groups_data = []
+
+        default_group = 'Management'
+        # Add stakeholder groups
+        for group in stakeholder_groups:
+            # Check if this group has any responses
+            has_responses = self._check_group_has_responses(group, current_year)
+            
+            # Calculate category averages for this group if they have responses
+            category_averages = {}
+            question_response = {}
+            
+            if has_responses:
+                category_averages = self._calculate_stakeholder_group_category_averages(group, current_year)
+                question_response = self._build_stakeholder_group_question_response(group, current_year, questions)
+
+            group_data = {
+                'id': str(group.id),
+                'name': group.name,
+                'display_name': group.name,
+                'stakeholder_count': group.stakeholder_count,
+                'is_default': group.name == default_group,
+                'has_responses': has_responses,
+                'category_averages': category_averages,
+                'question_response': question_response,  # New: per-question responses
+                'invitation_link': group.get_invite_full_url()
+            }
+            stakeholder_groups_data.append(group_data)
+
+        return stakeholder_groups_data
+
+    def _build_stakeholder_group_question_response(self, stakeholder_group, current_year, questions):
+        """Build question response structure for a stakeholder group"""
+        # Get all stakeholder users in this group
+        stakeholder_users = User.objects.filter(
+            usr_stakeholder__group=stakeholder_group,
+            usr_stakeholder__status='approved'
+        )
+
+        if not stakeholder_users.exists():
+            return {}
+
+        # Get all responses from stakeholders in this group
+        group_responses = ESGQuestionResponse.objects.filter(
+            user__in=stakeholder_users,
+            question__year=current_year,
+            questionnaire_type='stakeholder',
+            status='submitted'
+        ).select_related('question', 'question__category')
+
+        # Aggregate responses by question
+        question_aggregates = {}
+        for response in group_responses:
+            question_id = response.question.id
+            if question_id not in question_aggregates:
+                question_aggregates[question_id] = {
+                    'priorities': [],
+                    'status_quos': [],
+                    'comments': [],
+                    'response_count': 0
+                }
+            
+            if response.priority is not None and response.priority > 0:
+                question_aggregates[question_id]['priorities'].append(response.priority)
+            if response.status_quo is not None and response.status_quo > 0:
+                question_aggregates[question_id]['status_quos'].append(response.status_quo)
+            if response.comment:
+                question_aggregates[question_id]['comments'].append(response.comment)
+            
+            question_aggregates[question_id]['response_count'] += 1
+
+        # Build the structure similar to client admin question_response
+        question_response = {}
+        categories = ESGCategory.objects.filter(is_active=True).order_by('name')
+        
+        for category in categories:
+            category_questions = questions.filter(category=category)
+            question_response[category.name] = {
+                'category_info': {
+                    'id': str(category.id),
+                    'name': category.name,
+                    'display_name': category.display_name
+                },
+                'questions': []
+            }
+            
+            for question in category_questions:
+                aggregates = question_aggregates.get(question.id, {
+                    'priorities': [],
+                    'status_quos': [],
+                    'comments': [],
+                    'response_count': 0
+                })
+                
+                # Calculate averages
+                priority_avg = sum(aggregates['priorities']) / len(aggregates['priorities']) if aggregates['priorities'] else 0
+                status_quo_avg = sum(aggregates['status_quos']) / len(aggregates['status_quos']) if aggregates['status_quos'] else 0
+                
+                # Get priority and status quo display values
+                priority_display = None
+                status_quo_display = None
+                
+                if priority_avg > 0:
+                    priority_choices = dict(ESGQuestionResponse.PRIORITY_CHOICES)
+                    priority_display = priority_choices.get(round(priority_avg), 'Not Started')
+                
+                if status_quo_avg > 0:
+                    status_quo_choices = dict(ESGQuestionResponse.STATUS_QUO_CHOICES)
+                    status_quo_display = status_quo_choices.get(round(status_quo_avg), 'Not Started')
+                
+                # Combine all comments
+                combined_comments = ' | '.join(aggregates['comments']) if aggregates['comments'] else ''
+                
+                # Calculate completion score (simplified version)
+                completion_score = 0.0
+                if priority_avg > 0:
+                    completion_score += 0.4
+                if status_quo_avg > 0:
+                    completion_score += 0.4
+                if combined_comments:
+                    completion_score += 0.2
+                
+                question_data = {
+                    'question_id': str(question.id),
+                    'index_code': question.index_code,
+                    'measure': question.measure,
+                    'question_description': question.desription or '',
+                    'priority': round(priority_avg, 2) if priority_avg > 0 else None,
+                    'status_quo': round(status_quo_avg, 2) if status_quo_avg > 0 else None,
+                    'comment': combined_comments,
+                    'priority_display': priority_display,
+                    'status_quo_display': status_quo_display,
+                    'completion_score': completion_score,
+                    'response_count': aggregates['response_count'],  # Additional info: how many stakeholders responded
+                    'status': 'aggregated'  # Indicate this is aggregated data
+                }
+                
+                question_response[category.name]['questions'].append(question_data)
+
+        return question_response
+
 class ESGQuestionResponseViewSet(viewsets.ModelViewSet):
     serializer_class = ESGQuestionResponseSerializer
     permission_classes = [permissions.IsAuthenticated]
