@@ -1243,3 +1243,48 @@ class UpdatedStakeholderGroupSerializer(serializers.ModelSerializer):
         return obj.get_invite_full_url()
 
  
+
+# ------------------- STAKEHOLDER GROUPS ACCEPT, PENDING AND REJECTING --------------------
+from django.utils import timezone
+
+class StakeholderGroupSimpleSerializer(serializers.ModelSerializer):
+    """Simple serializer for stakeholder group info"""
+    class Meta:
+        model = StakeholderGroup
+        fields = ['id', 'name']
+
+class PendingStakeholderSerializer(serializers.ModelSerializer):
+    """Serializer for pending stakeholders list"""
+    group = StakeholderGroupSimpleSerializer(read_only=True)
+    full_name = serializers.SerializerMethodField()
+    status_display = serializers.CharField(source='get_status_display', read_only=True)
+    days_since_created = serializers.SerializerMethodField()
+    
+    class Meta:
+        model = Stakeholder
+        fields = [
+            'id', 'email', 'first_name', 'last_name', 'full_name',
+            'group', 'status', 'status_display', 'created_at', 
+            'days_since_created', 'is_registered', 'last_login'
+        ]
+    
+    def get_full_name(self, obj):
+        """Get full name of stakeholder"""
+        if obj.first_name and obj.last_name:
+            return f"{obj.first_name} {obj.last_name}"
+        elif obj.first_name:
+            return obj.first_name
+        elif obj.last_name:
+            return obj.last_name
+        return obj.email.split('@')[0]  # Use email prefix if no name
+    
+    def get_days_since_created(self, obj):
+        """Calculate days since stakeholder was created"""
+        
+        delta = timezone.now() - obj.created_at
+        return delta.days
+
+class StakeholderApprovalSerializer(serializers.Serializer):
+    """Serializer for stakeholder approval/rejection"""
+    reason = serializers.CharField(max_length=500, required=False, allow_blank=True)
+    send_notification = serializers.BooleanField(default=True)

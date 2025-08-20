@@ -6,7 +6,7 @@ from .views import (
     StakeholderCreateView, StakeholderInvitationAcceptView,
     StakeholderLoginView, StakeholderRegisterView,
     StakeholderTokenLoginView, LogoutView, StakeholderGroupInvitationAcceptView,
-    StakeholderGroupListCreateView, StakeholderGroupDetailView, StakeholderListView,SendStakeholderInvitationView, InvitationListView,ApproveStakeholderView, RejectStakeholderView, ProcessInvitationView, VerifyEmailView, StakeholderRegistrationView, GetInvitationLinkView,ValidateInvitationView,SubmitEmailView, StakeholderApprovalView, PendingStakeholdersView, StakeholderDetailView, StakeholderLoginStatusView, StakeholderLoginRequestView, StakeholderUserTokenLoginView, CreateStakeholderView, RemoveStakeholderView,StakeholderGroupListView, UpdatedStakeholderListView
+    StakeholderGroupListCreateView, StakeholderGroupDetailView, StakeholderListView,SendStakeholderInvitationView, InvitationListView,ApproveStakeholderView, RejectStakeholderView, ProcessInvitationView, VerifyEmailView, StakeholderRegistrationView, GetInvitationLinkView,ValidateInvitationView,SubmitEmailView, StakeholderApprovalView, PendingStakeholdersView, StakeholderDetailView, StakeholderLoginStatusView, StakeholderLoginRequestView, StakeholderUserTokenLoginView, CreateStakeholderView, RemoveStakeholderView,StakeholderGroupListView, UpdatedStakeholderListView, StakeholderApprovalViewSet
 )
 
 app_name = 'authentication'
@@ -110,10 +110,10 @@ urlpatterns = [
     # Get current user's stakeholder groups
     path('stakeholder-groups/', 
          StakeholderGroupListView.as_view(), 
-         name='stakeholder-groups')
+         name='stakeholder-groups'),
 
      # -------------------------- START: stakeholders approval, pending, and reject --------------
-     """
+     
      # Stakeholder approval endpoints
      path(
           'stakeholders/pending/', 
@@ -135,7 +135,7 @@ urlpatterns = [
           StakeholderApprovalViewSet.as_view({'post': 'resend_invitation'}), 
           name='resend-stakeholder-invitation'
      ),
-     """
+     
      # -------------------------- END: stakeholders approval, pending, and reject --------------
 
 ]

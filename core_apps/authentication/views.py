@@ -2904,3 +2904,302 @@ class UpdatedStakeholderListView(generics.ListAPIView):
             return Stakeholder.objects.none()
         
         return Stakeholder.objects.filter(group=group, status='approved').select_related('group', 'user').order_by('created_at')
+    
+
+
+
+# --------------------- [ 1 ] START: STAKEHOLDER ANALYSIS ACCEPTING STAKEHOLDERS ---------------- [#]
+from rest_framework.decorators import action
+from django.db.models import Q, Count
+from rest_framework.viewsets import ViewSet
+from .serializers import PendingStakeholderSerializer, StakeholderGroupSimpleSerializer
+
+class StakeholderApprovalViewSet(ViewSet):
+    """ViewSet for stakeholder approval management"""
+    permission_classes = [IsAuthenticated]
+
+    def get_client_stakeholders(self, user):
+        """Get all stakeholders for the current user's client"""
+        try:
+            client = user.client
+            return Stakeholder.objects.filter(
+                group__client=client
+            ).select_related('group').order_by('-created_at')
+        except AttributeError:
+            return Stakeholder.objects.none()
+
+    @action(detail=False, methods=['get'])
+    def list_pending_stakeholders(self, request):
+        """List all stakeholders for client admin approval"""
+        user = request.user
+        
+        # Get user's client
+        try:
+            client = user.client
+        except AttributeError:
+            return Response(
+                {'error': 'User is not associated with a client'}, 
+                status=status.HTTP_403_FORBIDDEN
+            )
+
+        # Get filter parameters
+        status_filter = request.query_params.get('status', 'all')  # all, pending, approved, rejected
+        group_filter = request.query_params.get('group', None)
+        search = request.query_params.get('search', None)
+
+        # Base queryset
+        queryset = Stakeholder.objects.filter(
+            group__client=client
+        ).select_related('group', 'user').order_by('-created_at')
+
+        # Apply filters
+        if status_filter != 'all':
+            queryset = queryset.filter(status=status_filter)
+        
+        if group_filter:
+            queryset = queryset.filter(group__id=group_filter)
+        
+        if search:
+            queryset = queryset.filter(
+                Q(email__icontains=search) |
+                Q(first_name__icontains=search) |
+                Q(last_name__icontains=search) |
+                Q(group__name__icontains=search)
+            )
+
+        # Get statistics
+        all_stakeholders = Stakeholder.objects.filter(group__client=client)
+        stats = {
+            'total': all_stakeholders.count(),
+            'pending': all_stakeholders.filter(status='pending').count(),
+            'approved': all_stakeholders.filter(status='approved').count(),
+            'rejected': all_stakeholders.filter(status='rejected').count(),
+        }
+
+        # Get groups for filtering
+        groups = StakeholderGroup.objects.filter(
+            client=client,
+            is_active=True
+        ).annotate(
+            stakeholder_count=Count('stakeholders')
+        ).order_by('name')
+
+        # Serialize data
+        stakeholders_data = PendingStakeholderSerializer(queryset, many=True).data
+        groups_data = StakeholderGroupSimpleSerializer(groups, many=True).data
+
+        return Response({
+            'stakeholders': stakeholders_data,
+            'stats': stats,
+            'groups': groups_data,
+            'client': {
+                'id': str(client.id),
+                'name': client.company_name
+            }
+        })
+
+    @action(detail=False, methods=['post'])
+    def approve_stakeholder(self, request, stakeholder_id):
+        """Approve a stakeholder"""
+        user = request.user
+        
+        try:
+            client = user.client
+        except AttributeError:
+            return Response(
+                {'error': 'User is not associated with a client'}, 
+                status=status.HTTP_403_FORBIDDEN
+            )
+
+        # Get stakeholder
+        stakeholder = get_object_or_404(
+            Stakeholder, 
+            id=stakeholder_id, 
+            group__client=client
+        )
+
+        if stakeholder.status == 'approved':
+            return Response(
+                {'error': 'Stakeholder is already approved'}, 
+                status=status.HTTP_400_BAD_REQUEST
+            )
+
+        # Validate input
+        serializer = StakeholderApprovalSerializer(data=request.data)
+        if not serializer.is_valid():
+            return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
+        # Update stakeholder status
+        stakeholder.status = 'approved'
+        stakeholder.save()
+
+        # Send notification email if requested
+        if serializer.validated_data.get('send_notification', True):
+            self._send_approval_notification(stakeholder, serializer.validated_data.get('reason', ''))
+
+        return Response({
+            'message': 'Stakeholder approved successfully',
+            'stakeholder': PendingStakeholderSerializer(stakeholder).data
+        })
+
+    @action(detail=False, methods=['post'])
+    def reject_stakeholder(self, request, stakeholder_id):
+        """Reject a stakeholder"""
+        user = request.user
+        
+        try:
+            client = user.client
+        except AttributeError:
+            return Response(
+                {'error': 'User is not associated with a client'}, 
+                status=status.HTTP_403_FORBIDDEN
+            )
+
+        # Get stakeholder
+        stakeholder = get_object_or_404(
+            Stakeholder, 
+            id=stakeholder_id, 
+            group__client=client
+        )
+
+        if stakeholder.status == 'rejected':
+            return Response(
+                {'error': 'Stakeholder is already rejected'}, 
+                status=status.HTTP_400_BAD_REQUEST
+            )
+
+        # Validate input
+        serializer = StakeholderApprovalSerializer(data=request.data)
+        if not serializer.is_valid():
+            return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
+        # Update stakeholder status
+        stakeholder.status = 'rejected'
+        stakeholder.save()
+
+        # Send notification email if requested
+        if serializer.validated_data.get('send_notification', True):
+            self._send_rejection_notification(stakeholder, serializer.validated_data.get('reason', ''))
+
+        return Response({
+            'message': 'Stakeholder rejected successfully',
+            'stakeholder': PendingStakeholderSerializer(stakeholder).data
+        })
+
+    @action(detail=False, methods=['post'])
+    def resend_invitation(self, request, stakeholder_id):
+        """Resend invitation to a stakeholder"""
+        user = request.user
+        
+        try:
+            client = user.client
+        except AttributeError:
+            return Response(
+                {'error': 'User is not associated with a client'}, 
+                status=status.HTTP_403_FORBIDDEN
+            )
+
+        # Get stakeholder
+        stakeholder = get_object_or_404(
+            Stakeholder, 
+            id=stakeholder_id, 
+            group__client=client
+        )
+
+        # Send invitation email
+        self._send_invitation_email(stakeholder)
+
+        return Response({
+            'message': 'Invitation sent successfully',
+            'stakeholder': PendingStakeholderSerializer(stakeholder).data
+        })
+
+    def _send_approval_notification(self, stakeholder, reason=''):
+        """Send approval notification email"""
+        subject = f'Your stakeholder request has been approved - {stakeholder.group.client.company_name}'
+        
+        message = f"""
+        Dear {stakeholder.first_name or 'Stakeholder'},
+        
+        Your request to join the stakeholder group "{stakeholder.group.name}" for {stakeholder.group.client.company_name} has been approved.
+        
+        You can now access the ESG questionnaire using the invitation link you received earlier.
+        
+        {f'Note from admin: {reason}' if reason else ''}
+        
+        Best regards,
+        ESG Platform Team
+        """
+        
+        try:
+            send_mail(
+                subject,
+                message,
+                settings.DEFAULT_FROM_EMAIL,
+                [stakeholder.email],
+                fail_silently=False,
+            )
+        except Exception as e:
+            print(f"Failed to send approval email: {e}")
+
+    def _send_rejection_notification(self, stakeholder, reason=''):
+        """Send rejection notification email"""
+        subject = f'Update on your stakeholder request - {stakeholder.group.client.company_name}'
+        
+        message = f"""
+        Dear {stakeholder.first_name or 'Stakeholder'},
+        
+        Thank you for your interest in participating in the ESG questionnaire for {stakeholder.group.client.company_name}.
+        
+        Unfortunately, we are unable to approve your request at this time.
+        
+        {f'Reason: {reason}' if reason else ''}
+        
+        If you have any questions, please contact the administrator.
+        
+        Best regards,
+        ESG Platform Team
+        """
+        
+        try:
+            send_mail(
+                subject,
+                message,
+                settings.DEFAULT_FROM_EMAIL,
+                [stakeholder.email],
+                fail_silently=False,
+            )
+        except Exception as e:
+            print(f"Failed to send rejection email: {e}")
+
+    def _send_invitation_email(self, stakeholder):
+        """Send/resend invitation email"""
+        subject = f'Invitation to ESG Stakeholder Survey - {stakeholder.group.client.company_name}'
+        
+        invitation_link = stakeholder.group.get_invite_full_url()
+        
+        message = f"""
+        Dear {stakeholder.first_name or 'Stakeholder'},
+        
+        You have been invited to participate in the ESG stakeholder survey for {stakeholder.group.client.company_name}.
+        
+        Please click the link below to accept the invitation and complete the survey:
+        {invitation_link}
+        
+        Group: {stakeholder.group.name}
+        
+        Best regards,
+        ESG Platform Team
+        """
+        
+        try:
+            send_mail(
+                subject,
+                message,
+                settings.DEFAULT_FROM_EMAIL,
+                [stakeholder.email],
+                fail_silently=False,
+            )
+        except Exception as e:
+            print(f"Failed to send invitation email: {e}")
+# --------------------- [ 1 ] END: STAKEHOLDER ANALYSIS ACCEPTING STAKEHOLDERS ---------------- [#]
