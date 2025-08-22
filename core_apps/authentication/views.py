@@ -2072,56 +2072,7 @@ class StakeholderApprovalView(APIView):
         return created_responses
     
     def post(self, request, stakeholder_id):
-        # try:
-        #     # Fetch the stakeholder by ID
-        #     stakeholder = Stakeholder.objects.get(id=stakeholder_id)
-            
-        #     # Ensure the stakeholder is in 'pending' status
-        #     if stakeholder.status != 'pending':
-        #         return Response(
-        #             {"detail": "Stakeholder is not in pending status."},
-        #             status=status.HTTP_400_BAD_REQUEST
-        #         )
-            
-        #     # Update the stakeholder status to 'approved'
-        #     stakeholder.status = 'approved'
-        #     stakeholder.save(update_fields=["status"])
-
-        #     auto_pwd  = get_random_string(32)
-        #     try:
-        #         user_obj   = User.objects.create_user(
-        #             # username=auto_user,
-        #             email=stakeholder.email,
-        #             first_name=stakeholder.first_name,
-        #             last_name=stakeholder.last_name,
-        #             password=auto_pwd,
-        #             role="stakeholder",
-        #             client=stakeholder.group.client,
-        #             is_active=True,
-        #         )
-        #         stakeholder.user = user_obj
-        #         stakeholder.save()
-        #         self.create_esg_responses_for_user(user_obj)
-        #     except Exception as e:
-        #         logger.error(f"Failed to create ESG responses for {user_obj.email}: {e}")
-        #     return Response(
-        #         {
-        #             "message": f"Stakeholder {stakeholder.email} has been approved successfully.",
-        #             "stakeholder_id": str(stakeholder.id),
-        #         },
-        #         status=status.HTTP_200_OK
-        #     )
-        
-        # except Stakeholder.DoesNotExist:
-        #     return Response(
-        #         {"detail": "Stakeholder not found."},
-        #         status=status.HTTP_404_NOT_FOUND
-        #     )
-        # except Exception as e:
-        #     return Response(
-        #         {"detail": f"An error occurred: {str(e)}"},
-        #         status=status.HTTP_500_INTERNAL_SERVER_ERROR
-        #     )
+       
         try:
             # Fetch the stakeholder by ID
             stakeholder = Stakeholder.objects.get(id=stakeholder_id)
@@ -2768,6 +2719,8 @@ class CreateStakeholderView(generics.CreateAPIView):
     serializer_class = CreateStakeholderSerializer
     permission_classes = [IsAuthenticated, IsClientAdminOrTerramoAdmin]
     
+
+    
     def get_serializer_context(self):
         context = super().get_serializer_context()
         context['group_id'] = self.kwargs.get('group_id')
@@ -2918,6 +2871,47 @@ class StakeholderApprovalViewSet(ViewSet):
     """ViewSet for stakeholder approval management"""
     permission_classes = [IsAuthenticated]
 
+    def create_esg_responses_for_user(self, user):
+        """
+        Create ESGQuestionResponse records for a client admin user
+        """
+        # Get current ESG year
+        current_year = ESGYear.get_current_year()
+        
+        if not current_year:
+            logger.warning("No current ESG year found, skipping ESG response creation")
+            return
+        
+        # Get all active ESG questions for the current year
+        active_questions = ESGQuestion.objects.filter(
+            year=current_year,
+            is_active=True
+        ).select_related('category')
+        
+        if not active_questions.exists():
+            logger.warning(f"No active ESG questions found for year {current_year.year}")
+            return
+        
+        # Create ESGQuestionResponse records
+        responses_to_create = []
+        for question in active_questions:
+            response = ESGQuestionResponse(
+                question=question,
+                user=user,
+                questionnaire_type='stakeholder',
+                status='draft'
+            )
+            responses_to_create.append(response)
+        
+        # Bulk create for better performance
+        created_responses = ESGQuestionResponse.objects.bulk_create(
+            responses_to_create, 
+            ignore_conflicts=True
+        )
+        print(f"Created {len(responses_to_create)} ESG question responses for {user.email}")
+        logger.info(f"Created {len(responses_to_create)} ESG question responses for {user.email}")
+        return created_responses
+    
     def get_client_stakeholders(self, user):
         """Get all stakeholders for the current user's client"""
         try:
@@ -3030,8 +3024,81 @@ class StakeholderApprovalViewSet(ViewSet):
             return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
         # Update stakeholder status
-        stakeholder.status = 'approved'
-        stakeholder.save()
+        # stakeholder.status = 'approved'
+        # stakeholder.save()
+
+        # from django.db import transaction, IntegrityError
+        # from django.core.exceptions import ValidationError
+        # from django.utils.crypto import get_random_string
+        # from rest_framework.response import Response
+        # from rest_framework import status
+        # import logging
+
+        logger = logging.getLogger(__name__)
+
+     
+
+        try:
+            with transaction.atomic():
+                auto_pwd = get_random_string(32)  # Generate a random password
+
+                user_obj = UserData.objects.create_user(
+                    email=stakeholder.email,
+                    first_name=stakeholder.first_name,
+                    last_name=stakeholder.last_name,
+                    password=auto_pwd,
+                    role="stakeholder",
+                    client=stakeholder.group.client,
+                    is_active=True,
+                )
+
+                # Associate the user with the stakeholder
+                stakeholder.status = 'approved'
+                stakeholder.user = user_obj
+                stakeholder.save()
+
+                # Create ESG responses for the user (if necessary)
+                self.create_esg_responses_for_user(user_obj)
+
+        except IntegrityError as e:
+            # Likely duplicate email or unique-together violation
+            logger.warning("IntegrityError while creating stakeholder user (%s): %s", stakeholder.email, e)
+            # Everything is rolled back by the atomic block
+             
+            return Response({"error": "User with this e-mail already exists."},
+                            status=status.HTTP_400_BAD_REQUEST)
+
+        except ValidationError as e:
+            logger.warning("ValidationError while creating stakeholder user (%s): %s", stakeholder.email, e)
+            
+            return Response({"error": e.message if hasattr(e, "message") else str(e)},
+                            status=status.HTTP_400_BAD_REQUEST)
+
+        except Exception as e:
+            logger.exception("Unexpected error while creating stakeholder user (%s): %s", stakeholder.email, e)
+            
+            return Response({"error": "Internal error creating stakeholder user."},
+                            status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+        
+        # Create the user associated with the stakeholder
+        # auto_pwd = get_random_string(32)  # Generate a random password
+        
+        # user_obj = UserData.objects.create_user(
+        #     email=stakeholder.email,
+        #     first_name=stakeholder.first_name,
+        #     last_name=stakeholder.last_name,
+        #     password=auto_pwd,
+        #     role="stakeholder",   
+        #     client=stakeholder.group.client,
+        #     is_active=True,
+        # )
+
+        # # After user creation, associate the user with the stakeholder
+        # stakeholder.user = user_obj
+        # stakeholder.save()
+        #  # create ESG responses for the user (if necessary)
+        # self.create_esg_responses_for_user(user_obj)
 
         # Send notification email if requested
         if serializer.validated_data.get('send_notification', True):

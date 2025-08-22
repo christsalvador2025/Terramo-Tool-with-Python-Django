@@ -77,7 +77,14 @@
 
 # urlpatterns += extra_patterns
 
-
+"""
+###########################################################################################
+TRACKING:
+TO SEARCH THE CODE JUST COPY THE SPECIFIC LIST HERE AND CTRL + F = 
+1. 
+2. START: STAKEHOLDER ANALYSIS 
+###########################################################################################
+"""
 from django.urls import path, include
 from rest_framework.routers import DefaultRouter
 from .views import (
@@ -117,6 +124,58 @@ urlpatterns = [
         ESGDashboardViewSet.as_view({'get': 'client_admin_stakeholder_analysis'}), 
         name='esg-client-admin-stakeholders-analysis'
     ),
+
+    # ===============================================================================
+    #    2. START: STAKEHOLDER ANALYSIS 
+    # ===============================================================================
+
+    # Stakeholder Analysis URLs
+    path(
+        'dashboard/client-admin/stakeholders-analysis/', 
+        ESGDashboardViewSet.as_view({'get': 'client_admin_stakeholder_analysis'}), 
+        name='esg-client-admin-stakeholders-analysis'
+    ),
+
+    # Stakeholder Group Management URLs
+    path(
+        'dashboard/stakeholder-groups/create/', 
+        ESGDashboardViewSet.as_view({'post': 'create_stakeholder_group'}), 
+        name='create-stakeholder-group'
+    ),
+
+    path(
+        'dashboard/stakeholder-groups/<str:group_id>/stakeholders/', 
+        ESGDashboardViewSet.as_view({'get': 'get_group_stakeholders'}), 
+        name='get-group-stakeholders'
+    ),
+
+    path(
+        'dashboard/stakeholders/create/', 
+        ESGDashboardViewSet.as_view({'post': 'create_stakeholder'}), 
+        name='create-stakeholder'
+    ),
+
+    path(
+        'dashboard/stakeholders/<str:stakeholder_id>/', 
+        ESGDashboardViewSet.as_view({'delete': 'remove_stakeholder'}), 
+        name='remove-stakeholder'
+    ),
+
+    path(
+        'dashboard/invitation-link/', 
+        ESGDashboardViewSet.as_view({'post': 'copy_invitation_link'}), 
+        name='copy-invitation-link'
+    ),
+
+    path(
+        'dashboard/group-visibility/', 
+        ESGDashboardViewSet.as_view({'patch': 'update_group_visibility'}), 
+        name='update-group-visibility'
+    ),
+
+    # ===============================================================================
+    #    2. END: STAKEHOLDER ANALYSIS 
+    # ===============================================================================
 ]
 
 # The router will automatically generate these URLs:

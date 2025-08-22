@@ -309,7 +309,7 @@ class ESGQuestionResponseAdmin(admin.ModelAdmin):
     ]
     list_filter = [
         'status', 'priority', 'status_quo', 'question__category', 
-        'question__year', 'responded_at'
+        'question__year', 'responded_at', 'user'
     ]
     search_fields = ['user__email', 'question__index_code', 'question__measure']
     ordering = ['-updated_at']

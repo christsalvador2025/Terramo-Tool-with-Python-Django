@@ -759,15 +759,7 @@
 """
 -------------------------------------
 """
-"""
-###########################################################################################
-TRACKING:
-TO SEARCH THE CODE JUST COPY THE SPECIFIC LIST HERE AND CTRL + F 
-1. class ESGYearViewSet
-2. class ESGCategoryViewSet 
-3. START: STAKEHOLDER ANAYLSIS 
-###########################################################################################
-"""
+
 from rest_framework import viewsets, status, permissions
 from rest_framework.decorators import action
 from rest_framework.response import Response
@@ -777,14 +769,6 @@ from django.db import transaction
 from django.contrib.auth import get_user_model
 from django.conf import settings
 from django.utils import timezone
-from django.db import transaction, IntegrityError
-import logging
-
-from django.core.exceptions import ValidationError
-from django.utils.crypto import get_random_string
-
-logger = logging.getLogger(__name__)
-from django.utils.crypto import get_random_string
 
 from .models import (
     ESGYear, ESGCategory, ESGQuestion, ESGQuestionResponse,
@@ -806,7 +790,6 @@ from core_apps.user_auth.models import User
 # User = settings.AUTH_USER_MODEL
 
 
-# ------ 1. class ESGYearViewSet ----------
 class ESGYearViewSet(viewsets.ModelViewSet):
     queryset = ESGYear.objects.all()
     serializer_class = ESGYearSerializer
@@ -821,7 +804,7 @@ class ESGYearViewSet(viewsets.ModelViewSet):
             return Response(serializer.data)
         return Response({'detail': 'No current year set'}, status=status.HTTP_404_NOT_FOUND)
 
-# ------ 2. class ESGCategoryViewSet ----------
+
 class ESGCategoryViewSet(viewsets.ModelViewSet):
     queryset = ESGCategory.objects.filter(is_active=True)
     serializer_class = ESGCategorySerializer
@@ -844,33 +827,6 @@ class ESGQuestionViewSet(viewsets.ModelViewSet):
             
         return queryset.select_related('category', 'year').order_by('category', 'order', 'index_code')
 
-class ESGQuestionResponseViewSet(viewsets.ModelViewSet):
-    serializer_class = ESGQuestionResponseSerializer
-    permission_classes = [permissions.IsAuthenticated]
-
-    def get_queryset(self):
-        user = self.request.user
-        queryset = ESGQuestionResponse.objects.filter(user=user)
-        
-        questionnaire_type = self.request.query_params.get('type')
-        if questionnaire_type:
-            queryset = queryset.filter(questionnaire_type=questionnaire_type)
-            
-        return queryset.select_related('question', 'question__category', 'user')
-
-    def perform_create(self, serializer):
-        # Determine questionnaire type
-        questionnaire_type = 'client_admin'
-        try:
-            Stakeholder.objects.get(user=self.request.user)
-            questionnaire_type = 'stakeholder'
-        except Stakeholder.DoesNotExist:
-            pass
-            
-        serializer.save(
-            user=self.request.user,
-            questionnaire_type=questionnaire_type
-        )
 
 class ESGDashboardViewSet(viewsets.ViewSet):
     """Main dashboard viewset handling different user roles"""
@@ -2373,404 +2329,31 @@ class ESGDashboardViewSet(viewsets.ViewSet):
                 question_response[category.name]['questions'].append(question_data)
 
         return question_response
-    
-    #  ================================================================================
-    #        2. START: STAKEHOLDER ANAYLSIS 
-    #  ================================================================================
-    # Add these methods to your ESGDashboardViewSet class
 
-    # @action(detail=False, methods=['post'])
-    # def create_stakeholder_group(self, request):
-    #     """Create a new stakeholder group"""
-    #     user = request.user
+class ESGQuestionResponseViewSet(viewsets.ModelViewSet):
+    serializer_class = ESGQuestionResponseSerializer
+    permission_classes = [permissions.IsAuthenticated]
+
+    def get_queryset(self):
+        user = self.request.user
+        queryset = ESGQuestionResponse.objects.filter(user=user)
         
-    #     # Get user's client
-    #     try:
-    #         client = user.client
-    #     except AttributeError:
-    #         return Response({'error': 'User is not associated with a client'}, 
-    #                         status=status.HTTP_403_FORBIDDEN)
-
-    #     name = request.data.get('name', '').strip()
-    #     if not name:
-    #         return Response({'error': 'Name is required'}, 
-    #                         status=status.HTTP_400_BAD_REQUEST)
-
-    #     # Check if group already exists
-    #     if StakeholderGroup.objects.filter(client=client, name__iexact=name, is_active=True).exists():
-    #         return Response({'error': 'Stakeholder group with this name already exists'}, 
-    #                         status=status.HTTP_400_BAD_REQUEST)
-
-    #     # Create the group
-    #     group = StakeholderGroup.objects.create(
-    #         client=client,
-    #         name=name,
-    #         is_active=True
-    #     )
-
-    #     return Response({
-    #         'message': 'Stakeholder group created successfully',
-    #         'group': {
-    #             'id': str(group.id),
-    #             'name': group.name,
-    #             'display_name': group.name,
-    #             'stakeholder_count': 0,
-    #             'is_default': False,
-    #             'has_responses': False,
-    #             'invitation_link': group.get_invite_full_url()
-    #         }
-    #     }, status=status.HTTP_201_CREATED)
-    def create_esg_responses_for_user(self, user):
-        """
-        Create ESGQuestionResponse records for a client admin user
-        """
-        # Get current ESG year
-        current_year = ESGYear.get_current_year()
-        
-        if not current_year:
-            logger.warning("No current ESG year found, skipping ESG response creation")
-            return
-        
-        # Get all active ESG questions for the current year
-        active_questions = ESGQuestion.objects.filter(
-            year=current_year,
-            is_active=True
-        ).select_related('category')
-        
-        if not active_questions.exists():
-            # logger.warning(f"No active ESG questions found for year {current_year.year}")
-            return
-        
-        # Create ESGQuestionResponse records
-        responses_to_create = []
-        for question in active_questions:
-            response = ESGQuestionResponse(
-                question=question,
-                user=user,
-                questionnaire_type='stakeholder',
-                status='draft'
-            )
-            responses_to_create.append(response)
-        
-        # Bulk create for better performance
-        created_responses = ESGQuestionResponse.objects.bulk_create(
-            responses_to_create, 
-            ignore_conflicts=True
-        )
-        print(f"Created {len(responses_to_create)} ESG question responses for {user.email}")
-        logger.info(f"Created {len(responses_to_create)} ESG question responses for {user.email}")
-        return created_responses
-    
-    @action(detail=False, methods=['post'])
-    def create_stakeholder_group(self, request):
-        """Create a new stakeholder group"""
-        login_user = request.user
-
-        # Get user's client
-        try:
-            client = login_user.client
-        except AttributeError:
-            return Response(
-                {'error': 'User is not associated with a client'},
-                status=status.HTTP_403_FORBIDDEN
-            )
-
-        name = (request.data.get('name') or '').strip()
-        if not name:
-            return Response(
-                {'error': 'Name is required'},
-                status=status.HTTP_400_BAD_REQUEST
-            )
-
-        # Check if group already exists (active)
-        if StakeholderGroup.objects.filter(
-            client=client, name__iexact=name, is_active=True
-        ).exists():
-            return Response(
-                {'error': 'Stakeholder group with this name already exists'},
-                status=status.HTTP_400_BAD_REQUEST
-            )
-
-        
-        try:
-            # Create the group and record the creator
-            group = StakeholderGroup.objects.create(
-                client=client,
-                name=name,
-                created_by=login_user,          
-                is_active=True
-            )
-        except IntegrityError:
-            # Handles rare race with unique_together
-            return Response(
-                {'error': 'A group with this name already exists for this client'},
-                status=status.HTTP_400_BAD_REQUEST
-            )
-
-        return Response(
-            {
-                'message': 'Stakeholder group created successfully',
-                'group': {
-                    'id': str(group.id),
-                    'name': group.name,
-                    'display_name': group.name,
-                    'stakeholder_count': 0,
-                    'is_default': False,
-                    'has_responses': False,
-                    'created_by': {          # 👇 handy creator info for the frontend (optional)
-                        'id': login_user.id,
-                        'email': getattr(login_user, 'email', ''),
-                        'full_name': getattr(login_user, 'get_full_name', lambda: None)() or getattr(login_user, 'username', ''),
-                    },
-                    'invitation_link': group.get_invite_full_url(),
-                }
-            },
-            status=status.HTTP_201_CREATED
-        )
-    @action(detail=False, methods=['post'])
-    def create_stakeholder(self, request):
-        """Create a new stakeholder in a group"""
-        user = request.user
-        
-        # Get user's client
-        try:
-            client = user.client
-        except AttributeError:
-            return Response({'error': 'User is not associated with a client'}, 
-                            status=status.HTTP_403_FORBIDDEN)
-
-        group_id = request.data.get('group_id')
-        email = request.data.get('email', '').strip()
-        first_name = request.data.get('first_name', '').strip()
-        last_name = request.data.get('last_name', '').strip()
-        send_invitation = request.data.get('send_invitation', True)
-        send_login_link = request.data.get('send_login_link', False)
-
-        if not email:
-            return Response({'error': 'Email is required'}, 
-                            status=status.HTTP_400_BAD_REQUEST)
-
-        if not group_id:
-            return Response({'error': 'Group ID is required'}, 
-                            status=status.HTTP_400_BAD_REQUEST)
-
-        # Get the stakeholder group
-        try:
-            group = StakeholderGroup.objects.get(id=group_id, client=client, is_active=True)
-        except StakeholderGroup.DoesNotExist:
-            return Response({'error': 'Stakeholder group not found'}, 
-                            status=status.HTTP_404_NOT_FOUND)
-
-        # Check if stakeholder already exists in the company
-        if Stakeholder.objects.filter(
-            group__client=client, 
-            email__iexact=email
-        ).exists():
-            return Response({'error': 'Stakeholder with this email already exists in this company'}, 
-                            status=status.HTTP_400_BAD_REQUEST)
-
-        try:
-            with transaction.atomic():
-                # Create the stakeholder
-                stakeholder = Stakeholder.objects.create(
-                    group=group,
-                    email=email,
-                    first_name=first_name,
-                    last_name=last_name,
-                    status='approved',  # Default status
-                    is_registered=True
-                )
-
-                # create user
-                auto_pwd = get_random_string(32)  # Generate a random password
-                user_obj = User.objects.create_user(
-                    email=stakeholder.email,
-                    first_name=stakeholder.first_name,
-                    last_name=stakeholder.last_name,
-                    password=auto_pwd,
-                    role="stakeholder",   
-                    client=stakeholder.group.client,
-                    is_active=True,
-                )
-
-                print(f"--------- Stakeholder -{user_obj.first_name}")
-                # create ESG responses for the user 
-                self.create_esg_responses_for_user(user_obj)
-                # send invitation emails
-                # if send_invitation:
-                #     send_invitation_email(stakeholder)
-                # if send_login_link:
-                #     send_login_link_email(stakeholder)
-                print(f"--------- Stakeholder created successfully-{group.name}")
-                return Response({
-                    'message': 'Stakeholder created successfully',
-                    'stakeholder': {
-                        'id': stakeholder.id,
-                        'email': stakeholder.email,
-                        'first_name': stakeholder.first_name,
-                        'last_name': stakeholder.last_name,
-                        'status': stakeholder.status,
-                        'group': group.name
-                    }
-                }, status=status.HTTP_201_CREATED)
-
-        except Exception as e:
-            return Response({'error': f'Failed to create stakeholder: {str(e)}'}, 
-                            status=status.HTTP_500_INTERNAL_SERVER_ERROR)
-
-    @action(detail=False, methods=['get'], url_path='stakeholder-group/(?P<group_id>[^/.]+)/stakeholders')
-    def get_group_stakeholders(self, request, group_id=None):
-        """Get stakeholders for a specific group"""
-        user = request.user
-        
-        # Get user's client
-        try:
-            client = user.client
-        except AttributeError:
-            return Response({'error': 'User is not associated with a client'}, 
-                            status=status.HTTP_403_FORBIDDEN)
-
-        # Get the stakeholder group
-        try:
-            group = StakeholderGroup.objects.get(id=group_id, client=client, is_active=True)
-        except StakeholderGroup.DoesNotExist:
-            return Response({'error': 'Stakeholder group not found'}, 
-                            status=status.HTTP_404_NOT_FOUND)
-
-        # Get stakeholders in this group
-        stakeholders = Stakeholder.objects.filter(
-            group=group
-        ).select_related('user').order_by('first_name', 'last_name', 'email')
-
-        stakeholders_data = []
-        for stakeholder in stakeholders:
-            stakeholders_data.append({
-                'id': stakeholder.id,
-                'first_name': stakeholder.first_name,
-                'last_name': stakeholder.last_name,
-                'email': stakeholder.email,
-                'status': stakeholder.status,
-                'last_login': stakeholder.user.last_login if stakeholder.user else None,
-                'is_registered': stakeholder.is_registered
-            })
-
-        return Response({
-            'group': {
-                'id': str(group.id),
-                'name': group.name,
-                'display_name': group.name
-            },
-            'stakeholders': stakeholders_data
-        })
-
-    @action(detail=False, methods=['delete'], url_path='stakeholder/(?P<stakeholder_id>[^/.]+)')
-    def remove_stakeholder(self, request, stakeholder_id=None):
-        """Remove a stakeholder from a group"""
-        user = request.user
-        
-        # Get user's client
-        try:
-            client = user.client
-        except AttributeError:
-            return Response({'error': 'User is not associated with a client'}, 
-                            status=status.HTTP_403_FORBIDDEN)
-
-        try:
-            stakeholder = Stakeholder.objects.get(
-                id=stakeholder_id, 
-                group__client=client
-            )
+        questionnaire_type = self.request.query_params.get('type')
+        if questionnaire_type:
+            queryset = queryset.filter(questionnaire_type=questionnaire_type)
             
-            # Instead of deleting, mark as inactive or actually delete based on your business logic
-            stakeholder.delete()  # or stakeholder.is_active = False; stakeholder.save()
-            
-            return Response({'message': 'Stakeholder removed successfully'})
-            
+        return queryset.select_related('question', 'question__category', 'user')
+
+    def perform_create(self, serializer):
+        # Determine questionnaire type
+        questionnaire_type = 'client_admin'
+        try:
+            Stakeholder.objects.get(user=self.request.user)
+            questionnaire_type = 'stakeholder'
         except Stakeholder.DoesNotExist:
-            return Response({'error': 'Stakeholder not found'}, 
-                            status=status.HTTP_404_NOT_FOUND)
-
-    @action(detail=False, methods=['post'])
-    def copy_invitation_link(self, request):
-        """Get invitation link for a stakeholder group"""
-        user = request.user
-        
-        # Get user's client
-        try:
-            client = user.client
-        except AttributeError:
-            return Response({'error': 'User is not associated with a client'}, 
-                            status=status.HTTP_403_FORBIDDEN)
-
-        group_id = request.data.get('group_id')
-        if not group_id:
-            return Response({'error': 'Group ID is required'}, 
-                            status=status.HTTP_400_BAD_REQUEST)
-
-        try:
-            group = StakeholderGroup.objects.get(id=group_id, client=client, is_active=True)
+            pass
             
-            return Response({
-                'invitation_link': group.get_invite_full_url(),
-                'group_name': group.name
-            })
-            
-        except StakeholderGroup.objects.DoesNotExist:
-            return Response({'error': 'Stakeholder group not found'}, 
-                            status=status.HTTP_404_NOT_FOUND)
-
-    @action(detail=False, methods=['patch'])
-    def update_group_visibility(self, request):
-        """Update stakeholder group visibility in analysis"""
-        user = request.user
-        
-        # Get user's client
-        try:
-            client = user.client
-        except AttributeError:
-            return Response({'error': 'User is not associated with a client'}, 
-                            status=status.HTTP_403_FORBIDDEN)
-
-        group_visibilities = request.data.get('group_visibilities', {})
-        
-        if not isinstance(group_visibilities, dict):
-            return Response({'error': 'Invalid group_visibilities format'}, 
-                            status=status.HTTP_400_BAD_REQUEST)
-
-        updated_groups = []
-        
-        try:
-            with transaction.atomic():
-                for group_id, is_visible in group_visibilities.items():
-                    try:
-                        group = StakeholderGroup.objects.get(
-                            id=group_id, 
-                            client=client, 
-                            is_active=True
-                        )
-                        
-                        # Don't allow disabling default groups
-                        if not group.name == 'Management':  # Assuming 'Management' is default
-                            # You might want to add a field like 'show_in_analysis' to your model
-                            # For now, we'll just return the current state
-                            updated_groups.append({
-                                'id': str(group.id),
-                                'name': group.name,
-                                'is_visible': is_visible
-                            })
-                            
-                    except StakeholderGroup.DoesNotExist:
-                        continue
-
-                return Response({
-                    'message': 'Group visibilities updated successfully',
-                    'updated_groups': updated_groups
-                })
-                
-        except Exception as e:
-            return Response({'error': f'Failed to update group visibilities: {str(e)}'}, 
-                            status=status.HTTP_500_INTERNAL_SERVER_ERROR)
-
-    #  ================================================================================
-    #        2. END: STAKEHOLDER ANAYLSIS 
-    #  ================================================================================
+        serializer.save(
+            user=self.request.user,
+            questionnaire_type=questionnaire_type
+        )
