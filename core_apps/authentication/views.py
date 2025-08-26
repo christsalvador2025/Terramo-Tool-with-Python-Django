@@ -2490,44 +2490,44 @@ class StakeholderLoginRequestView(APIView):
                 group_name = stakeholder.group.name
                 
                 # generate login and send email 
-                generate_stakeholder_token(stakeholder, request, email)
+                # generate_stakeholder_token(stakeholder, request, email)
 
-                return Response({
-                        "message": "Login link has been sent to your email address. Please check your email and click the link to access your account. The link will expire in 1 hour.",
-                        "success": True,
-                        "status": "login_link_sent"
-                    }, status=status.HTTP_200_OK)
-
-                # Generate login email
-                # subject = f"Login Link - {group_name}"
-                # message = generate_stakeholder_login_email(stakeholder_name, login_url, group_name)
-                
-                # # Send email
-                # try:
-                #     send_mail(
-                #         subject=subject,
-                #         message=message,
-                #         from_email=settings.DEFAULT_FROM_EMAIL,
-                #         recipient_list=[email],
-                #         fail_silently=False,
-                #     )
-                    
-                #     logger.info(f"Login link sent successfully to {email}")
-                    
-                #     return Response({
+                # return Response({
                 #         "message": "Login link has been sent to your email address. Please check your email and click the link to access your account. The link will expire in 1 hour.",
                 #         "success": True,
                 #         "status": "login_link_sent"
                 #     }, status=status.HTTP_200_OK)
+
+                # Generate login email
+                subject = f"Login Link - {group_name}"
+                message = generate_stakeholder_login_email(stakeholder_name, login_url, group_name)
+                
+                # Send email
+                try:
+                    send_mail(
+                        subject=subject,
+                        message=message,
+                        from_email=settings.DEFAULT_FROM_EMAIL,
+                        recipient_list=[email],
+                        fail_silently=False,
+                    )
                     
-                # except Exception as e:
-                #     logger.error(f"Failed to send login email to {email}: {e}")
-                #     # Mark token as used since email failed
-                #     login_token_obj.mark_as_used()
-                #     return Response({
-                #         "error": "Failed to send email. Please try again later.",
-                #         "status": "email_send_failed"
-                #     }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+                    logger.info(f"Login link sent successfully to {email}")
+                    
+                    return Response({
+                        "message": "Login link has been sent to your email address. Please check your email and click the link to access your account. The link will expire in 1 hour.",
+                        "success": True,
+                        "status": "login_link_sent"
+                    }, status=status.HTTP_200_OK)
+                    
+                except Exception as e:
+                    logger.error(f"Failed to send login email to {email}: {e}")
+                    # Mark token as used since email failed
+                    login_token_obj.mark_as_used()
+                    return Response({
+                        "error": "Failed to send email. Please try again later.",
+                        "status": "email_send_failed"
+                    }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
                 
             except Stakeholder.DoesNotExist:
                 logger.warning(f"No approved/registered stakeholder found for {email}")
