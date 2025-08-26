@@ -22,6 +22,9 @@ FRONTEND_CLIENT_ACCEPT_ENDPOINT = getenv("FRONTEND_CLIENT_ACCEPT_ENDPOINT")
 FRONTEND_STAKEHOLDER_ACCEPT_ENDPOINT = getenv("FRONTEND_STAKEHOLDER_ACCEPT_ENDPOINT")
 FRONTEND_STAKEHOLDER_LOGIN_ENDPOINT = getenv("FRONTEND_STAKEHOLDER_LOGIN_ENDPOINT")
 FRONTEND_CLIENT_LOGIN_ENDPOINT = getenv("FRONTEND_CLIENT_LOGIN_ENDPOINT")
+SITE_NAME = getenv("SITE_NAME")
+DEFAULT_FROM_EMAIL = getenv("DEFAULT_FROM_EMAIL")
+TERRAMO_SUPPORT= getenv("TERRAMO_SUPPORT_EMAIL")
 
 API_VERSION = getenv("API_VERSION")
 # Application definition
@@ -204,6 +207,8 @@ DEFAULT_EXPIRY_DATE = date(2024, 1, 1)
 DEFAULT_COUNTRY = "DE"
 DEFAULT_LANDLINE_NUMBER = "+43 123 456789"
 DEFAULT_PHONE_NUMBER = "+43 123 1234567"
+SEND_INVITATION_EXPIRY = 7
+
 
 REST_FRAMEWORK = {
     "DEFAULT_SCHEMA_CLASS": "drf_spectacular.openapi.AutoSchema",
@@ -282,11 +287,11 @@ CELERY_BEAT_SCHEDULER = "django_celery_beat.schedulers:DatabaseScheduler"
 CELERY_WORKER_SEND_TASK_EVENTS = True
 
 # CELERY_BEAT_SCHEDULE = {
-#     "apply-daily-interest": {
-#         "task": "apply_daily_interest",
+#     "celery-label-s": {
+#         "task": "",
 #     },
-#     "detect-suspicious-activities": {
-#         "task": "detect_suspicious_activities",
+#     "celery-label-s": {
+#         "task": "",
 #     },
 # }
 

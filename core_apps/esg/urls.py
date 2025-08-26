@@ -108,8 +108,13 @@ urlpatterns = [
     
     # Alternative explicit URL patterns if you prefer not to use router
     path('dashboard/admin/', ESGDashboardViewSet.as_view({'get': 'admin_dashboard'}), name='esg-admin-dashboard'),
+    path('dashboard/admin-with-year/', ESGDashboardViewSet.as_view({'get': 'admin_dashboard_with_year'}), name='esg-admin-dashboard-with-year'),
+    
+    
     # path('dashboard/client-admin/', ESGDashboardViewSet.as_view({'get': 'client_admin_dashboard'}), name='esg-client-admin-dashboard'),
     path('dashboard/client-admin/', ESGDashboardViewSet.as_view({'get': 'client_admin_dashboard'}), name='esg-client-admin-dashboard'),
+
+    path('dashboard/client-admin-with-year/', ESGDashboardViewSet.as_view({'get': 'client_admin_dashboard_with_year'}), name='esg-client-admin-dashboard-with-year'),
     # path('dashboard/stakeholder/', ESGDashboardViewSet.as_view({'get': 'stakeholder_dashboard'}), name='esg-stakeholder-dashboard'), stakeholderuser_dashboard
     path('dashboard/stakeholder/', ESGDashboardViewSet.as_view({'get': 'stakeholderuser_dashboard'}), name='esg-stakeholder-dashboard'),
     path('dashboard/client/<uuid:client_id>/', ESGDashboardViewSet.as_view({'get': 'stakeholderuser_dashboard'}), name='esg-client-detail'),
@@ -119,11 +124,11 @@ urlpatterns = [
     
     # stakeholders analysis
     # path('dashboard/client-admin/stakeholders-analysis', ESGDashboardViewSet.as_view({'get': 'client_admin_stakeholder_analysis'}), name='esg-client-admin-dashboard'),
-    path(
-        'dashboard/client-admin/stakeholders-analysis/', 
-        ESGDashboardViewSet.as_view({'get': 'client_admin_stakeholder_analysis'}), 
-        name='esg-client-admin-stakeholders-analysis'
-    ),
+    # path(
+    #     'dashboard/client-admin/stakeholders-analysis/', 
+    #     ESGDashboardViewSet.as_view({'get': 'client_admin_stakeholder_analysis'}), 
+    #     name='esg-client-admin-stakeholders-analysis'
+    # ),
 
     # ===============================================================================
     #    2. START: STAKEHOLDER ANALYSIS 
@@ -135,8 +140,15 @@ urlpatterns = [
         ESGDashboardViewSet.as_view({'get': 'client_admin_stakeholder_analysis'}), 
         name='esg-client-admin-stakeholders-analysis'
     ),
+    # Stakeholder Analysis with filter years and client id
+    path(
+        'dashboard/client-admin/stakeholders-analysis-with-year/', 
+        ESGDashboardViewSet.as_view({'get': 'client_admin_stakeholder_analysis_with_year'}), 
+        name='esg-client-admin-stakeholders-analysis-with-year'
+    ),
 
-    # Stakeholder Group Management URLs
+
+    # Stakeholder Group Management URLs created_by_id
     path(
         'dashboard/stakeholder-groups/create/', 
         ESGDashboardViewSet.as_view({'post': 'create_stakeholder_group'}), 
@@ -171,6 +183,12 @@ urlpatterns = [
         'dashboard/group-visibility/', 
         ESGDashboardViewSet.as_view({'patch': 'update_group_visibility'}), 
         name='update-group-visibility'
+    ),
+
+    path(
+        'dashboard/test-send-mail/', 
+        ESGDashboardViewSet.as_view({'post': 'test_send_mail'}), 
+        name='test-send-mail'
     ),
 
     # ===============================================================================

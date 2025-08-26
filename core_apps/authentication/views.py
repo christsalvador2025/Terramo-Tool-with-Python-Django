@@ -28,6 +28,7 @@ from .utils import generate_invitation_email, generate_login_email, set_auth_coo
 from rest_framework.permissions import AllowAny, IsAuthenticated
 
 from core_apps.user_auth.models import User as UserData
+from core_apps.clients.tasks import create_esg_responses_for_user
 
 logger = logging.getLogger(__name__)
 
@@ -2024,52 +2025,55 @@ class StakeholderRegistrationView(APIView):
 #         return response
 from django.utils.crypto import get_random_string
 from core_apps.esg.models import ESGQuestion, ESGQuestionResponse, ESGYear
+# from core_apps.clients.tasks import create_esg_responses_for_user
+# In Django shell or your stakeholders view
+
 class StakeholderApprovalView(APIView):
     """Handle approval of a pending stakeholder."""
     
     
     permission_classes = [IsAuthenticated]
 
-    def create_esg_responses_for_user(self, user):
-        """
-        Create ESGQuestionResponse records for a client admin user
-        """
-        # Get current ESG year
-        current_year = ESGYear.get_current_year()
+    # def create_esg_responses_for_user(self, user):
+    #     """
+    #     Create ESGQuestionResponse records for a client admin user
+    #     """
+    #     # Get current ESG year
+    #     current_year = ESGYear.get_current_year()
         
-        if not current_year:
-            logger.warning("No current ESG year found, skipping ESG response creation")
-            return
+    #     if not current_year:
+    #         logger.warning("No current ESG year found, skipping ESG response creation")
+    #         return
         
-        # Get all active ESG questions for the current year
-        active_questions = ESGQuestion.objects.filter(
-            year=current_year,
-            is_active=True
-        ).select_related('category')
+    #     # Get all active ESG questions for the current year
+    #     active_questions = ESGQuestion.objects.filter(
+    #         year=current_year,
+    #         is_active=True
+    #     ).select_related('category')
         
-        if not active_questions.exists():
-            logger.warning(f"No active ESG questions found for year {current_year.year}")
-            return
+    #     if not active_questions.exists():
+    #         logger.warning(f"No active ESG questions found for year {current_year.year}")
+    #         return
         
-        # Create ESGQuestionResponse records
-        responses_to_create = []
-        for question in active_questions:
-            response = ESGQuestionResponse(
-                question=question,
-                user=user,
-                questionnaire_type='stakeholder',
-                status='draft'
-            )
-            responses_to_create.append(response)
+    #     # Create ESGQuestionResponse records
+    #     responses_to_create = []
+    #     for question in active_questions:
+    #         response = ESGQuestionResponse(
+    #             question=question,
+    #             user=user,
+    #             questionnaire_type='stakeholder',
+    #             status='draft'
+    #         )
+    #         responses_to_create.append(response)
         
-        # Bulk create for better performance
-        created_responses = ESGQuestionResponse.objects.bulk_create(
-            responses_to_create, 
-            ignore_conflicts=True
-        )
-        print(f"Created {len(responses_to_create)} ESG question responses for {user.email}")
-        logger.info(f"Created {len(responses_to_create)} ESG question responses for {user.email}")
-        return created_responses
+    #     # Bulk create for better performance
+    #     created_responses = ESGQuestionResponse.objects.bulk_create(
+    #         responses_to_create, 
+    #         ignore_conflicts=True
+    #     )
+    #     print(f"Created {len(responses_to_create)} ESG question responses for {user.email}")
+    #     logger.info(f"Created {len(responses_to_create)} ESG question responses for {user.email}")
+    #     return created_responses
     
     def post(self, request, stakeholder_id):
        
@@ -2106,9 +2110,11 @@ class StakeholderApprovalView(APIView):
                 # After user creation, associate the user with the stakeholder
                 stakeholder.user = user_obj
                 stakeholder.save()
-
-                # Optionally, create ESG responses for the user (if necessary)
-                self.create_esg_responses_for_user(user_obj)
+                print(f"----- creating stakeholders ---- ")
+                logger.info("-- logging stakehgolders --")
+                #  create ESG responses for the user
+                # self.create_esg_responses_for_user(user_obj)
+                transaction.on_commit(lambda: create_esg_responses_for_user.delay(user_obj.id, 'stakeholder'))
 
                 # Return success response
                 return Response(
@@ -2398,7 +2404,7 @@ Terramo Team
     """.strip()
 
 from .models import StakeholderLoginToken
-
+from utils.auth_token_utils import generate_stakeholder_token
 @method_decorator(never_cache, name='dispatch')
 class StakeholderLoginRequestView(APIView):
     """Handle login link requests for stakeholders"""
@@ -2483,36 +2489,45 @@ class StakeholderLoginRequestView(APIView):
                 stakeholder_name = stakeholder.first_name or stakeholder.email.split('@')[0]
                 group_name = stakeholder.group.name
                 
-                # Generate login email
-                subject = f"Login Link - {group_name}"
-                message = generate_stakeholder_login_email(stakeholder_name, login_url, group_name)
-                
-                # Send email
-                try:
-                    send_mail(
-                        subject=subject,
-                        message=message,
-                        from_email=settings.DEFAULT_FROM_EMAIL,
-                        recipient_list=[email],
-                        fail_silently=False,
-                    )
-                    
-                    logger.info(f"Login link sent successfully to {email}")
-                    
-                    return Response({
+                # generate login and send email 
+                generate_stakeholder_token(stakeholder, request, email)
+
+                return Response({
                         "message": "Login link has been sent to your email address. Please check your email and click the link to access your account. The link will expire in 1 hour.",
                         "success": True,
                         "status": "login_link_sent"
                     }, status=status.HTTP_200_OK)
+
+                # Generate login email
+                # subject = f"Login Link - {group_name}"
+                # message = generate_stakeholder_login_email(stakeholder_name, login_url, group_name)
+                
+                # # Send email
+                # try:
+                #     send_mail(
+                #         subject=subject,
+                #         message=message,
+                #         from_email=settings.DEFAULT_FROM_EMAIL,
+                #         recipient_list=[email],
+                #         fail_silently=False,
+                #     )
                     
-                except Exception as e:
-                    logger.error(f"Failed to send login email to {email}: {e}")
-                    # Mark token as used since email failed
-                    login_token_obj.mark_as_used()
-                    return Response({
-                        "error": "Failed to send email. Please try again later.",
-                        "status": "email_send_failed"
-                    }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+                #     logger.info(f"Login link sent successfully to {email}")
+                    
+                #     return Response({
+                #         "message": "Login link has been sent to your email address. Please check your email and click the link to access your account. The link will expire in 1 hour.",
+                #         "success": True,
+                #         "status": "login_link_sent"
+                #     }, status=status.HTTP_200_OK)
+                    
+                # except Exception as e:
+                #     logger.error(f"Failed to send login email to {email}: {e}")
+                #     # Mark token as used since email failed
+                #     login_token_obj.mark_as_used()
+                #     return Response({
+                #         "error": "Failed to send email. Please try again later.",
+                #         "status": "email_send_failed"
+                #     }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
                 
             except Stakeholder.DoesNotExist:
                 logger.warning(f"No approved/registered stakeholder found for {email}")
@@ -2871,46 +2886,46 @@ class StakeholderApprovalViewSet(ViewSet):
     """ViewSet for stakeholder approval management"""
     permission_classes = [IsAuthenticated]
 
-    def create_esg_responses_for_user(self, user):
-        """
-        Create ESGQuestionResponse records for a client admin user
-        """
-        # Get current ESG year
-        current_year = ESGYear.get_current_year()
+    # def create_esg_responses_for_user(self, user):
+    #     """
+    #     Create ESGQuestionResponse records for a client admin user
+    #     """
+    #     # Get current ESG year
+    #     current_year = ESGYear.get_current_year()
         
-        if not current_year:
-            logger.warning("No current ESG year found, skipping ESG response creation")
-            return
+    #     if not current_year:
+    #         logger.warning("No current ESG year found, skipping ESG response creation")
+    #         return
         
-        # Get all active ESG questions for the current year
-        active_questions = ESGQuestion.objects.filter(
-            year=current_year,
-            is_active=True
-        ).select_related('category')
+    #     # Get all active ESG questions for the current year
+    #     active_questions = ESGQuestion.objects.filter(
+    #         year=current_year,
+    #         is_active=True
+    #     ).select_related('category')
         
-        if not active_questions.exists():
-            logger.warning(f"No active ESG questions found for year {current_year.year}")
-            return
+    #     if not active_questions.exists():
+    #         logger.warning(f"No active ESG questions found for year {current_year.year}")
+    #         return
         
-        # Create ESGQuestionResponse records
-        responses_to_create = []
-        for question in active_questions:
-            response = ESGQuestionResponse(
-                question=question,
-                user=user,
-                questionnaire_type='stakeholder',
-                status='draft'
-            )
-            responses_to_create.append(response)
+    #     # Create ESGQuestionResponse records
+    #     responses_to_create = []
+    #     for question in active_questions:
+    #         response = ESGQuestionResponse(
+    #             question=question,
+    #             user=user,
+    #             questionnaire_type='stakeholder',
+    #             status='draft'
+    #         )
+    #         responses_to_create.append(response)
         
-        # Bulk create for better performance
-        created_responses = ESGQuestionResponse.objects.bulk_create(
-            responses_to_create, 
-            ignore_conflicts=True
-        )
-        print(f"Created {len(responses_to_create)} ESG question responses for {user.email}")
-        logger.info(f"Created {len(responses_to_create)} ESG question responses for {user.email}")
-        return created_responses
+    #     # Bulk create for better performance
+    #     created_responses = ESGQuestionResponse.objects.bulk_create(
+    #         responses_to_create, 
+    #         ignore_conflicts=True
+    #     )
+    #     print(f"Created {len(responses_to_create)} ESG question responses for {user.email}")
+    #     logger.info(f"Created {len(responses_to_create)} ESG question responses for {user.email}")
+    #     return created_responses
     
     def get_client_stakeholders(self, user):
         """Get all stakeholders for the current user's client"""
@@ -3058,7 +3073,8 @@ class StakeholderApprovalViewSet(ViewSet):
                 stakeholder.save()
 
                 # Create ESG responses for the user (if necessary)
-                self.create_esg_responses_for_user(user_obj)
+                transaction.on_commit(lambda: create_esg_responses_for_user.delay(user_obj.id, 'stakeholder'))
+                # self.create_esg_responses_for_user(user_obj)
 
         except IntegrityError as e:
             # Likely duplicate email or unique-together violation
@@ -3190,7 +3206,7 @@ class StakeholderApprovalViewSet(ViewSet):
         
         Your request to join the stakeholder group "{stakeholder.group.name}" for {stakeholder.group.client.company_name} has been approved.
         
-        You can now access the ESG questionnaire using the invitation link you received earlier.
+        You can request login token here in : http://localhost:5173/stakeholder/request-login/
         
         {f'Note from admin: {reason}' if reason else ''}
         

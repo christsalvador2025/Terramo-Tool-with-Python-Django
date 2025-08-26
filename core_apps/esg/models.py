@@ -17,6 +17,10 @@ class ESGYearManager(models.Manager):
         except self.model.DoesNotExist:
             return self.filter(is_active=True).first()
         
+    def get_available_years(self):
+        """Get all available years for dropdowns"""
+        return self.filter(is_active=True).values_list('year', flat=True).order_by('-year')
+        
 class ESGYear(TimeStampedModel):
     """Years for ESG questionnaires"""
     year = models.PositiveIntegerField(
@@ -47,6 +51,12 @@ class ESGYear(TimeStampedModel):
             return cls.objects.get(is_current=True)
         except cls.DoesNotExist:
             return cls.objects.filter(is_active=True).first()
+    
+    @classmethod
+    def get_available_years_list(cls):
+        """Get list of available years as tuples for choices"""
+        return [(year, str(year)) for year in cls.objects.get_available_years()]
+    
 class ESGCategory(TimeStampedModel):
     """ ESG Category """
     name = models.CharField(max_length=50,unique=True)

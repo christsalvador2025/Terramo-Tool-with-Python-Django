@@ -1,0 +1,51 @@
+{% extends 'emails/base_email.html' %}
+
+{% block title %}Login Token - {{ site_name }}{% endblock %}
+
+{% block header_extra %}
+    <p>Secure Login Access</p>
+{% endblock %}
+
+{% block content %}
+    <div class="user-info">
+        <h2>Hello {{ user.first_name|default:user.email }}! 👋</h2>
+        <p><strong>Email:</strong> {{ user.email }}</p>
+        <p><strong>Role:</strong> {{ role_display }}</p>
+    </div>
+    
+    <div class="alert-info">
+        <h3>🔐 Your Login Token is Ready</h3>
+        <p>You requested a secure login token. Click the button below to access your account:</p>
+    </div>
+    
+    <div style="text-align: center; margin: 30px 0;">
+        <a href="{{ login_url }}" class="btn">Login to {{ site_name }}</a>
+    </div>
+    
+    {% comment %} <div style="background: #f8f9fa; padding: 15px; border-radius: 6px; font-family: monospace;">
+        <strong>Token:</strong> {{ token }}
+    </div> {% endcomment %}
+    <div>
+        <p style="margin-top:20px; font-size:14px; color:#555;">
+            If the button above doesn’t work, copy and paste the link below into your browser:
+        </p>
+
+        <p style="word-break: break-all; font-size:14px; color:#007cba;">
+        {{ login_url }}
+        </p>
+    </div>
+    
+    <div style="margin-top: 20px; padding: 15px; background: #fff3cd; border-left: 4px solid #ffc107;">
+        <p><strong>⏰ Important:</strong> This token will expire in {{ expires_in_hours }} hour for your security.</p>
+        <p>If you didn't request this token, please ignore this email or contact support.</p>
+    </div>
+    
+    <hr style="margin: 30px 0; border: none; border-top: 1px solid #eee;">
+    
+    <h4>What's next?</h4>
+    <ul>
+        <li>Click the login button above</li>
+        <li>You'll be automatically signed in</li>
+        <li>The token will be consumed and cannot be reused</li>
+    </ul>
+{% endblock %}

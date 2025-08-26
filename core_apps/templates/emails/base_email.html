@@ -1,0 +1,93 @@
+{% comment %} <!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>{% block title %}{% endblock title %}</title>
+</head>
+<body>
+{% block content %}
+
+{% endblock content %}
+
+</body>
+</html> {% endcomment %}
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{% block title %}{{ site_name }}{% endblock %}</title>
+    <style>
+        body { 
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; 
+            line-height: 1.6; 
+            color: #333;
+            margin: 0;
+            padding: 0;
+            background-color: #f4f4f4;
+        }
+        .container { 
+            max-width: 600px; 
+            margin: 0 auto; 
+            background-color: white;
+            box-shadow: 0 0 10px rgba(0,0,0,0.1);
+        }
+        .header { 
+            background: linear-gradient(135deg, #026770 0%, #047883ff 100%);
+            color: white;
+            padding: 20px; 
+            text-align: center; 
+        }
+        .content { padding: 30px; }
+        .footer { 
+            background: #f8f9fa;
+            padding: 20px; 
+            font-size: 12px; 
+            color: #666; 
+            text-align: center; 
+            border-top: 1px solid #eee;
+        }
+        .btn { 
+            display: inline-block; 
+            padding: 12px 24px; 
+            background: #026770; 
+            color: white; 
+            text-decoration: none; 
+            border-radius: 6px;
+            font-weight: bold;
+            margin: 10px 0;
+        }
+        .btn:hover { background: #005a87; }
+        .alert-success { background: #d4edda; border-left: 4px solid #28a745; padding: 15px; margin: 15px 0; }
+        .alert-info { background: #d1ecf1; border-left: 4px solid #17a2b8; padding: 15px; margin: 15px 0; }
+        .user-info { background: #f8f9fa; padding: 15px; border-radius: 6px; margin: 15px 0; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>{{ site_name }}</h1>
+            {% block header_extra %}{% endblock %}
+        </div>
+        
+        <div class="content">
+            {% block content %}{% endblock %}
+        </div>
+        
+        {% comment %} <div class="footer">
+            {% block footer %}
+                <p>© {{ current_year|default:2024 }} {{ site_name }}. All rights reserved.</p>
+                <p>
+                    {% if contact_info.support_email %}
+                        Questions? Contact us at <a href="mailto:{{ contact_info.support_email }}">{{ contact_info.support_email }}</a>
+                    {% endif %}
+                    {% if contact_info.phone %}
+                        | Call: {{ contact_info.phone }}
+                    {% endif %}
+                </p>
+            {% endblock %}
+        </div> {% endcomment %}
+    </div>
+</body>
+</html>

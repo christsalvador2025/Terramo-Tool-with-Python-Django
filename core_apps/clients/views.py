@@ -20,6 +20,10 @@ from core_apps.common.permissions import IsTerramoAdmin
 User = get_user_model()
 from core_apps.authentication.models import ClientAdmin, StakeholderGroup, InvitationToken, LoginSession
 from core_apps.esg.models import ESGYear, ESGQuestion, ESGQuestionResponse
+
+
+from .tasks import create_esg_responses_for_user
+
 class ClientViewSet(viewsets.ModelViewSet):
     queryset = Client.objects.all()
     serializer_class = ClientSerializer
@@ -134,6 +138,10 @@ from django.contrib.auth.hashers import make_password
 from django.utils.crypto import get_random_string
 from core_apps.user_auth.models import User
 
+# email service
+from core_apps.services.email_service import EmailService
+from utils.auth_token_utils import generate_client_admin_token
+
 class ClientViewDataSet(ModelViewSet):
     """
     ViewSet for managing clients
@@ -222,30 +230,13 @@ class ClientViewDataSet(ModelViewSet):
                 client=client,
                 is_active=True,
             )
-            self.create_esg_responses_for_user(user_obj)
+            # self.create_esg_responses_for_user(user_obj) 'esg_task_id': task.id,
+            # CREATE CELERY TASK: ESGQuestion Responses.
+            transaction.on_commit(lambda: create_esg_responses_for_user.delay(user_obj.id, 'client_admin'))
+            
         except Exception as e:
             logger.error(f"Failed to create ESG responses for {user_obj.email}: {e}")
-        # Create client admin
-        # client_admin = ClientAdmin.objects.create(
-        #     client=client,
-        #     email=client.email,
-        #     first_name=client.contact_person_first_name,
-        #     last_name=client.contact_person_last_name
-        # )
-
-        # if User.objects.filter(email=email,).exists():
-        #     return Response(
-        #         {'error': 'A user with this email already exists'}, 
-        #         status=status.HTTP_400_BAD_REQUEST
-        #     )
-            
-        # # Check if client with same company name and country already exists
-        # if Client.objects.filter(company_name=company_name, land=land).exists():
-        #     return Response(
-        #         {'error': 'A client with this company name already exists in this country'}, 
-        #         status=status.HTTP_400_BAD_REQUEST
-        #     )
-        # Create default "Management" stakeholder group
+       
         StakeholderGroup.objects.create(
             name="Management",
             client=client,
@@ -282,10 +273,25 @@ class ClientViewDataSet(ModelViewSet):
         #     account_status=User.AccountStatus.ACTIVE,
         # )
         
-        
+        user_info = {
+            'first_name': user_obj.first_name,
+            'company_name': client.company_name,
+            'email': client.email,
+            'role_display': 'Client Admin',
+            'role': 'client_admin',
+            'invitee_email': self.request.user.email
+        }
 
+        role = user_obj.role
+        
+        inviter = {
+            'email': self.request.user.email,
+            'name': 'Terramo Admin',
+        }
+        invitation_link = f"{settings.FRONTEND_DOMAIN_URL}/client-admin/accept-invitation/{invitation_token.token}"
         # Send invitation email
-        self.send_invitation_email(client, invitation_token)
+        # self.send_invitation_email(client, invitation_token)
+        EmailService.send_invitation_email(user_info, inviter, role, invitation_link)
         logger.info(f"Client created: {serializer.instance.company_name} by {self.request.user}")
         return client
     def send_invitation_email(self, client, invitation_token):
@@ -396,46 +402,46 @@ class ClientViewDataSet(ModelViewSet):
         
         return Response(stats, status=status.HTTP_200_OK)
 
-    def create_esg_responses_for_user(self, user):
-        """
-        Create ESGQuestionResponse records for a client admin user
-        """
-        # Get current ESG year
-        current_year = ESGYear.get_current_year()
+    # def create_esg_responses_for_user(self, user):
+    #     """
+    #     Create ESGQuestionResponse records for a client admin user
+    #     """
+    #     # Get current ESG year
+    #     current_year = ESGYear.get_current_year()
         
-        if not current_year:
-            logger.warning("No current ESG year found, skipping ESG response creation")
-            return
+    #     if not current_year:
+    #         logger.warning("No current ESG year found, skipping ESG response creation")
+    #         return
         
-        # Get all active ESG questions for the current year
-        active_questions = ESGQuestion.objects.filter(
-            year=current_year,
-            is_active=True
-        ).select_related('category')
+    #     # Get all active ESG questions for the current year
+    #     active_questions = ESGQuestion.objects.filter(
+    #         year=current_year,
+    #         is_active=True
+    #     ).select_related('category')
         
-        if not active_questions.exists():
-            logger.warning(f"No active ESG questions found for year {current_year.year}")
-            return
+    #     if not active_questions.exists():
+    #         logger.warning(f"No active ESG questions found for year {current_year.year}")
+    #         return
         
-        # Create ESGQuestionResponse records
-        responses_to_create = []
-        for question in active_questions:
-            response = ESGQuestionResponse(
-                question=question,
-                user=user,
-                questionnaire_type='client_admin',
-                status='draft'
-            )
-            responses_to_create.append(response)
+    #     # Create ESGQuestionResponse records
+    #     responses_to_create = []
+    #     for question in active_questions:
+    #         response = ESGQuestionResponse(
+    #             question=question,
+    #             user=user,
+    #             questionnaire_type='client_admin',
+    #             status='draft'
+    #         )
+    #         responses_to_create.append(response)
         
-        # Bulk create for better performance
-        created_responses = ESGQuestionResponse.objects.bulk_create(
-            responses_to_create, 
-            ignore_conflicts=True
-        )
-        print(f"Created {len(responses_to_create)} ESG question responses for {user.email}")
-        logger.info(f"Created {len(responses_to_create)} ESG question responses for {user.email}")
-        return created_responses
+    #     # Bulk create for better performance
+    #     created_responses = ESGQuestionResponse.objects.bulk_create(
+    #         responses_to_create, 
+    #         ignore_conflicts=True
+    #     )
+    #     print(f"Created {len(responses_to_create)} ESG question responses for {user.email}")
+    #     logger.info(f"Created {len(responses_to_create)} ESG question responses for {user.email}")
+    #     return created_responses
     
 class ProductListView(generics.ListAPIView):
     """List all available products for client creation"""
@@ -1929,55 +1935,62 @@ class ClientAdminRequestLoginView(APIView):
                         }, status=status.HTTP_404_NOT_FOUND)
                     
                     # Invalidate any existing unused tokens for this user (optional security measure)
-                    ClientAdminLoginToken.objects.filter(
-                        user=user,
-                        is_used=False
-                    ).update(is_used=True, used_at=timezone.now())
+                    # ClientAdminLoginToken.objects.filter(
+                    #     user=user,
+                    #     is_used=False
+                    # ).update(is_used=True, used_at=timezone.now())
                     
-                    # Create new login token
-                    login_token_obj = ClientAdminLoginToken.objects.create(
-                        user=user,
-                        client_invitation=invitation,
-                        ip_address=self.get_client_ip(request),
-                        user_agent=request.META.get('HTTP_USER_AGENT', '')[:500]  # Limit length
-                    )
+                    # # Create new login token
+                    # login_token_obj = ClientAdminLoginToken.objects.create(
+                    #     user=user,
+                    #     client_invitation=invitation,
+                    #     ip_address=self.get_client_ip(request),
+                    #     user_agent=request.META.get('HTTP_USER_AGENT', '')[:500]  # Limit length
+                    # )
                     
-                    login_url = login_token_obj.get_login_url()
-                    logger.info(f"Generated login token for {email}: {login_token_obj.token}")
+                    # login_url = login_token_obj.get_login_url()
+                    # logger.info(f"Generated login token for {email}: {login_token_obj.token}")
                     
-                    # Get user's name for email
-                    user_name = user.first_name or client.contact_person_first_name
+                    # # Get user's name for email
+                    # user_name = user.first_name or client.contact_person_first_name
                     
-                    # Generate login email
-                    subject = f"Login Link - {client.company_name}"
-                    message = generate_login_email(user_name, login_url)
+                    # # Generate login email
+                    # subject = f"Login Link - {client.company_name}"
+                    # message = generate_login_email(user_name, login_url)
                     
-                    # Send email
-                    try:
-                        send_mail(
-                            subject=subject,
-                            message=message,
-                            from_email=settings.DEFAULT_FROM_EMAIL,
-                            recipient_list=[email],
-                            fail_silently=False,
-                        )
-                        
-                        logger.info(f"Login link sent successfully to {email}")
-                        
-                        return Response({
+                    # generate login token then send mail
+                    generate_client_admin_token(user, request, invitation)
+                    return Response({
                             "message": "Login link has been sent to your email address. Please check your email and click the link to access your account. The link will expire in 1 hour.",
                             "success": True,
                             "status": "login_link_sent"
                         }, status=status.HTTP_200_OK)
+                    # Send email
+                    # try:
+                    #     send_mail(
+                    #         subject=subject,
+                    #         message=message,
+                    #         from_email=settings.DEFAULT_FROM_EMAIL,
+                    #         recipient_list=[email],
+                    #         fail_silently=False,
+                    #     )
                         
-                    except Exception as e:
-                        logger.error(f"Failed to send login email to {email}: {e}")
-                        # Mark token as used since email failed
-                        login_token_obj.mark_as_used()
-                        return Response({
-                            "error": "Failed to send email. Please try again later.",
-                            "status": "email_send_failed"
-                        }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+                    #     logger.info(f"Login link sent successfully to {email}")
+                        
+                    #     return Response({
+                    #         "message": "Login link has been sent to your email address. Please check your email and click the link to access your account. The link will expire in 1 hour.",
+                    #         "success": True,
+                    #         "status": "login_link_sent"
+                    #     }, status=status.HTTP_200_OK)
+                        
+                    # except Exception as e:
+                    #     logger.error(f"Failed to send login email to {email}: {e}")
+                    #     # Mark token as used since email failed
+                    #     login_token_obj.mark_as_used()
+                    #     return Response({
+                    #         "error": "Failed to send email. Please try again later.",
+                    #         "status": "email_send_failed"
+                    #     }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
                 
                 else:
                     logger.error(f"Unexpected state for {email}: verified={email_verified}, accepted={is_accepted}")
@@ -1996,7 +2009,7 @@ class ClientAdminRequestLoginView(APIView):
                 logger.error(f"Error finding invitation for {email}: {invitation_error}")
                 print(f"invitation_error => {invitation_error}")
                 return Response({
-                    "error": "Error processing your request. Please try again later. yow?",
+                    "error": f"Error processing your request. Please try again later. yow? {invitation_error}",
                     "status": "invitation_error"
                 }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
             
@@ -2137,3 +2150,6 @@ class ClientAdminTokenLoginView(APIView):
                 "error": "An unexpected error occurred during login. Please try again later.",
                 "status": "server_error"
             }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+        
+
+

@@ -661,7 +661,7 @@ class StakeholderRegistrationSerializer(serializers.Serializer):
      
     def create(self, validated_data):
         stakeholder = validated_data['stakeholder']
-        print(f"error create -> {stakeholder}")
+     
         stakeholder.first_name = validated_data['first_name']
         stakeholder.last_name = validated_data['last_name']
         stakeholder.is_registered = True

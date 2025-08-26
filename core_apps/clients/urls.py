@@ -41,4 +41,6 @@ urlpatterns = [
     path('client-admin/login/<str:token>/', 
          ClientAdminTokenLoginView.as_view(), 
          name='client-admin-token-login'),
+
+     
 ]   
