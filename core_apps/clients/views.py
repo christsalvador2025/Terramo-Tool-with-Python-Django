@@ -910,7 +910,7 @@ class ClientAdminAcceptInvitationView(APIView):
                 )
                 invitation.is_accepted = True
                 invitation.email_verified = True
-                invitation.is_active = False
+                invitation.is_active = True
                 invitation.accepted_at = timezone.now()
                 
                 invitation.save(update_fields=['is_accepted', 'email_verified', 'is_active', 'accepted_at'])

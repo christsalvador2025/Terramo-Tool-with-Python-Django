@@ -89,7 +89,7 @@ class Client(TimeStampedModel):
     |   Contact Person
     ------------------------------------------------------------------------------
     """
-    contact_person_first_name = models.CharField(_("Contact Person First Name"), max_length=200, null=True, blank=False)
+    contact_person_first_name = models.CharField(_("Contact Person First Name"), max_length=200, null=True, blank=True)
     contact_person_last_name = models.CharField(_("Contact Person Last Name"),max_length=200, null=True, blank=True)
     gender = models.CharField(
         _("Gender"), max_length=8, choices=Gender.choices, default=Gender.MALE
