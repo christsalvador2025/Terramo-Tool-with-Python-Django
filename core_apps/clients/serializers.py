@@ -636,6 +636,8 @@ class ClientCreateDataSerializer(serializers.ModelSerializer):
             raise serializers.ValidationError({
                 'error': str(e)
             })
+
+        
 class ClientListSerializer(serializers.ModelSerializer):
     """Simplified serializer for listing clients"""
     products_count = serializers.SerializerMethodField()
@@ -644,7 +646,7 @@ class ClientListSerializer(serializers.ModelSerializer):
     class Meta:
         model = Client
         fields = [
-            'id', 'company_name', 'contact_person_first_name',
+            'id', 'company_name', 'company_photo','company_photo_url','contact_person_first_name',
             'contact_person_last_name', 'email', 'city', 'land',
             'is_active', 'products_count', 'invitation_status',
             'created_at'

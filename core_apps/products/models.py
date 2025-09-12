@@ -26,6 +26,7 @@ class Product(TimeStampedModel):
     name = models.CharField(max_length=100)
     # type = models.CharField(max_length=30, choices=ProductType.choices)
     description = models.TextField(blank=True)
+    slug = models.CharField(max_length=200, blank=True, null=True)
     price = models.DecimalField(max_digits=10, decimal_places=2, null=True, blank=True)
     is_active = models.BooleanField(default=True)
      
@@ -34,6 +35,16 @@ class Product(TimeStampedModel):
         indexes = [
             models.Index(fields=['name', 'is_active']),
         ]
+
     
     def __str__(self):
         return self.name
+    
+   
+
+    def save(self, *args, **kwargs):
+        """Set automatic slug"""
+        self.slug = self.name.lower().replace(" ", "-")
+        
+        super().save(*args, **kwargs)
+        

@@ -45,5 +45,5 @@ admin.site.site_header = "Terramo Tool Admin"
 admin.site.site_title = "Terramo Tool Admin Portal"
 admin.site.index_title = "Welcome to Terramo Tool Admin Portal"
 
-if settings.DEBUG:
-    urlpatterns += static(settings.MEDIA_URL, document_root=settings.MEDIA_ROOT)
+# if settings.DEBUG:
+#     urlpatterns += static(settings.MEDIA_URL, document_root=settings.MEDIA_ROOT)

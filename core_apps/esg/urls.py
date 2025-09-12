@@ -140,6 +140,11 @@ urlpatterns = [
         ESGDashboardViewSet.as_view({'get': 'client_admin_stakeholder_analysis'}), 
         name='esg-client-admin-stakeholders-analysis'
     ),
+    path(
+        'dashboard/client-admin/stakeholders-analysis/show-in-or-not-in-table/', 
+        ESGDashboardViewSet.as_view({'post': 'client_admin_stakeholder_analysis_show_in_table'}), 
+        name='esg-client-admin-stakeholders-analysis-show-in-table'
+    ),
     # Stakeholder Analysis with filter years and client id
     path(
         'dashboard/client-admin/stakeholders-analysis-with-year/', 
@@ -154,6 +159,13 @@ urlpatterns = [
         ESGDashboardViewSet.as_view({'post': 'create_stakeholder_group'}), 
         name='create-stakeholder-group'
     ),
+    # terramo admin global stakeholders
+    path(
+        'dashboard/global-stakeholder-groups/create/', 
+        ESGDashboardViewSet.as_view({'post': 'create_global_stakeholders_group'}), 
+        name='create-stakeholder-group'
+    ),
+    
 
     path(
         'dashboard/stakeholder-groups/<str:group_id>/stakeholders/', 

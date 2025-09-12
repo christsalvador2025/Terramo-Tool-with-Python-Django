@@ -9,9 +9,14 @@ from django.shortcuts import redirect
 from django.utils.html import format_html
 from django.urls import reverse
 from django.conf import settings
-from .models import Invitation, InvitationStatus, ClientInvitation,ClientAdminLoginToken
+from .models import Invitation, InvitationStatus, ClientInvitation,ClientAdminLoginToken, ClientAdmin
 from django.template.defaultfilters import date as date_filter
  
+
+@admin.register(ClientAdmin)
+class ClientAdminAdmin(admin.ModelAdmin):
+    pass
+
 @admin.register(ClientAdminLoginToken)
 class ClientAdminLoginTokenAdmin(admin.ModelAdmin):
    
@@ -180,14 +185,14 @@ class ClientAdmin(admin.ModelAdmin):
     fieldsets = (
         
         ('Company Information', { 
-            'fields': ('company_name', 'date',  'company_photo', 'role',)
+            'fields': ('company_name', 'date',  'company_photo', 'company_photo_url','role',)
         }),
         ('Contact Person', { 
-            'fields': ('contact_person_first_name', 'contact_person_last_name', 'gender', 'year_of_birth', ),
+            'fields': ('contact_person_first_name', 'contact_person_last_name', 'gender', 'year_of_birth', 'email',),
             'description': 'Information about the primary contact for this client.', 
         }),
         ('Address Details', { 
-            'fields': ('street', 'zip_code', 'location', 'landline_number', 'mobile_phone_number', 'city', 'land','email',),
+            'fields': ('street', 'zip_code', 'location', 'landline_number', 'mobile_phone_number', 'city', 'land',),
             'description': 'Information about the address of the client', 
         }),
         (None, {"fields": ("is_active",'miscellaneous',)}),

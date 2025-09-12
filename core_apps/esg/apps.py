@@ -7,5 +7,5 @@ class EsgConfig(AppConfig):
     verbose_name = _("ESG")
 
  
-    # def ready(self):
-    #     import core_apps.esg.signals
+    def ready(self):
+        import core_apps.esg.signals

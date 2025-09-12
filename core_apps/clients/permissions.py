@@ -1,5 +1,5 @@
 from rest_framework.permissions import BasePermission
-from core_apps.authentication.models import ClientAdmin
+# from core_apps.authentication.models import ClientAdmin
 # class IsAuthenticatedClientAdmin(BasePermission):
 #     def has_permission(self, request, view):
 #         return bool(request.user and hasattr(request.user, 'client') and request.user.is_authenticated)

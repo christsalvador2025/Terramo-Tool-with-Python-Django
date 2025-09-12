@@ -1,12 +1,12 @@
 from django.urls import path, include
 from .views import (
-    TerramoAdminLoginView,
-    ClientAdminInvitationAcceptView, ClientAdminLoginView, 
-    ClientAdminTokenLoginView, StakeholderGroupCreateView,
+    TerramoAdminLoginView, StakeholderGroupCreateView,
     StakeholderCreateView, StakeholderInvitationAcceptView,
     StakeholderLoginView, StakeholderRegisterView,
     StakeholderTokenLoginView, LogoutView, StakeholderGroupInvitationAcceptView,
-    StakeholderGroupListCreateView, StakeholderGroupDetailView, StakeholderListView,SendStakeholderInvitationView, InvitationListView,ApproveStakeholderView, RejectStakeholderView, ProcessInvitationView, VerifyEmailView, StakeholderRegistrationView, GetInvitationLinkView,ValidateInvitationView,SubmitEmailView, StakeholderApprovalView, PendingStakeholdersView, StakeholderDetailView, StakeholderLoginStatusView, StakeholderLoginRequestView, StakeholderUserTokenLoginView, CreateStakeholderView, RemoveStakeholderView,StakeholderGroupListView, UpdatedStakeholderListView, StakeholderApprovalViewSet
+    StakeholderGroupListCreateView, StakeholderGroupDetailView, StakeholderListView,SendStakeholderInvitationView, InvitationListView,ApproveStakeholderView, RejectStakeholderView, ProcessInvitationView, VerifyEmailView, StakeholderRegistrationView, GetInvitationLinkView,ValidateInvitationView,SubmitEmailView, StakeholderApprovalView, PendingStakeholdersView, StakeholderDetailView, StakeholderLoginStatusView, StakeholderLoginRequestView, StakeholderUserTokenLoginView, CreateStakeholderView, RemoveStakeholderView,StakeholderGroupListView, UpdatedStakeholderListView, StakeholderApprovalViewSet, StakeholderGroupTerramoListCreateView,
+    invitation_detail_public,accept_invitation,
+    StakeholderGroupInvitationDetailView, StakeholderUserRegistrationView
 )
 
 app_name = 'authentication'
@@ -17,17 +17,17 @@ urlpatterns = [
 #     path('admin/clients/create/', ClientCreateView.as_view(), name='client_create'),
     
     # Client Admin URLs
-    path('client-admin/accept-invitation/<str:token>/', 
-         ClientAdminInvitationAcceptView.as_view(), name='client_admin_accept_invitation'),
+#     path('client-admin/accept-invitation/<str:token>/', 
+#          ClientAdminInvitationAcceptView.as_view(), name='client_admin_accept_invitation'),
      # new path
 #     path('client-admin/accept-invite/<uuid:token>/', ClientAdminAcceptInviteView.as_view(), name='client-admin-accept-invite'),
 #     path('client-admin/auth/login/', ClientAdminLoginAuthView.as_view(), name='client-admin-login'),
 #     path('client-admin/auth/logout/', LogoutViewData.as_view(), name='logout'),
 
 
-    path('client-admin/login/', ClientAdminLoginView.as_view(), name='client_admin_login'),
-    path('client-admin/login/<str:token>/', 
-         ClientAdminTokenLoginView.as_view(), name='client_admin_token_login'),
+#     path('client-admin/login/', ClientAdminLoginView.as_view(), name='client_admin_login'),
+#     path('client-admin/login/<str:token>/', 
+#          ClientAdminTokenLoginView.as_view(), name='client_admin_token_login'),
     
     # Stakeholder Group URLs (Client Admin)
     path('client-admin/groups/create/', 
@@ -75,11 +75,13 @@ urlpatterns = [
 #      path('invitation/stakeholder/validate/<uuid:token>/', validate_invitation_token, name='validate_invitation'),
 #     path('invitation/stakeholder/verify-email/', verify_email, name='verify_email'),
       # Invitation flow URLs
-      
+     
+     # *
     path('stakeholder/validate-invitation/', ValidateInvitationView.as_view(), name='validate_invitation'),
     path('stakeholder/submit-email/', SubmitEmailView.as_view(), name='submit_email'),
+    # *
     path('stakeholder/register-user/', StakeholderRegistrationView.as_view(), name='stakeholder-register'),
-    
+    path('stakeholder/register-stakeholders/', StakeholderUserRegistrationView.as_view(), name='stakeholder-user-register'),
     # Admin management URLs
 #     path('stakeholder/approve/<str:id>/', StakeholderApprovalView.as_view(), name='approve_stakeholder'),
      
@@ -138,4 +140,31 @@ urlpatterns = [
      
      # -------------------------- END: stakeholders approval, pending, and reject --------------
 
+    # =======================================================================================================
+    # |     START: UPDATED OPTIMIZED STAKEHOLDER GROUPS VIEWS                                              |
+    # =======================================================================================================
+     path('terramo-stakeholder-groups/', StakeholderGroupTerramoListCreateView.as_view(), name='group-list-create'),
+#     path('groups/<uuid:pk>/', views.StakeholderGroupDetailView.as_view(), name='group-detail'),
+    
+#     # Stakeholders
+#     path('stakeholders/', views.StakeholderListCreateView.as_view(), name='stakeholder-list-create'),
+#     path('stakeholders/<uuid:pk>/', views.StakeholderDetailView.as_view(), name='stakeholder-detail'),
+    
+#     # Invitations (Admin)
+#     path('invitations/', views.StakeholderGroupInvitationListCreateView.as_view(), name='invitation-list-create'),
+    path('invitations/<uuid:pk>/', StakeholderGroupInvitationDetailView.as_view(), name='invitation-detail'),
+    
+#     # Public invitation endpoints (no auth required)
+    path('public/invitation/<uuid:token>/', invitation_detail_public, name='invitation-public-detail'),
+    path('public/invitation/<uuid:token>/accept/', accept_invitation, name='invitation-accept'),
+    
+#     # Dashboard and Statistics
+#     path('dashboard/stats/', views.dashboard_stats, name='dashboard-stats'),
+    
+#     # Bulk Operations
+#     path('bulk/approve-stakeholders/', views.bulk_approve_stakeholders, name='bulk-approve-stakeholders'),
+#     path('bulk/cleanup-invitations/', views.cleanup_expired_invitations, name='cleanup-invitations'),
+    # =======================================================================================================
+    # |     END: UPDATED OPTIMIZED STAKEHOLDER GROUPS VIEWS                                              |
+    # =======================================================================================================
 ]

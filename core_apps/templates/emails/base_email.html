@@ -39,6 +39,10 @@
             padding: 20px; 
             text-align: center; 
         }
+        .header-logo{
+            width: 200px;
+
+        }
         .content { padding: 30px; }
         .footer { 
             background: #f8f9fa;
@@ -67,7 +71,8 @@
 <body>
     <div class="container">
         <div class="header">
-            <h1>{{ site_name }}</h1>
+            {% comment %} <h1>{{ site_name }}</h1> {% endcomment %}
+            <img class="header-logo" src="https://res.cloudinary.com/dqvi1vgiy/image/upload/v1757553398/logo-white_oiw7la.svg" />
             {% block header_extra %}{% endblock %}
         </div>
         

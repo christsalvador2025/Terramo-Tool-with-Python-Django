@@ -112,19 +112,19 @@ from core_apps.user_auth.models import User
 #     def __str__(self):
 #         return f"{self.company_name} - {self.first_name} {self.last_name}"
 
-class ClientAdmin(models.Model):
-    """Client Admin model - not in User table"""
-    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
-    client = models.OneToOneField(Client, on_delete=models.CASCADE, related_name='admin')
-    email = models.EmailField(unique=True, validators=[EmailValidator()])
-    first_name = models.CharField(max_length=100)
-    last_name = models.CharField(max_length=100)
-    is_active = models.BooleanField(default=True)
-    created_at = models.DateTimeField(auto_now_add=True)
-    last_login = models.DateTimeField(null=True, blank=True)
+# class ClientAdmin(models.Model):
+#     """Client Admin model - not in User table"""
+#     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+#     client = models.OneToOneField(Client, on_delete=models.CASCADE, related_name='admin')
+#     email = models.EmailField(unique=True, validators=[EmailValidator()])
+#     first_name = models.CharField(max_length=100)
+#     last_name = models.CharField(max_length=100)
+#     is_active = models.BooleanField(default=True)
+#     created_at = models.DateTimeField(auto_now_add=True)
+#     last_login = models.DateTimeField(null=True, blank=True)
     
-    def __str__(self):
-        return f"{self.email} - {self.client.company_name}"
+#     def __str__(self):
+#         return f"{self.email} - {self.client.company_name}"
     
 
 """
@@ -139,21 +139,47 @@ class StakeholderGroup(models.Model):
     """Stakeholder groups created by Client Admin"""
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
     name = models.CharField(max_length=100)
-    client = models.ForeignKey(Client, on_delete=models.CASCADE, related_name='stakeholder_groups')
+    # client = models.ForeignKey(Client, on_delete=models.CASCADE, null=True,blank=True, related_name='stakeholder_groups')
+    client = models.ForeignKey(
+        Client,  
+        on_delete=models.CASCADE, 
+        related_name='stakeholder_groups',
+        null=True, 
+        blank=True,
+        help_text="Leave empty for templates"
+    )
+    is_global = models.BooleanField(default=False)
     created_by = models.ForeignKey(User, on_delete=models.CASCADE)
     created_at = models.DateTimeField(auto_now_add=True)
     is_active = models.BooleanField(default=True)
     invitation_token = models.UUIDField(default=uuid.uuid4, unique=True, editable=False)
-
+    disable_the_invitation = models.BooleanField(verbose_name=_('Disable the Invitaion'), default=False)
+    show_in_table = models.BooleanField(default=False)
     class Meta:
         unique_together = ['name', 'client']
+        ordering = ["-is_global", "-name"]
     
     def __str__(self):
-        return f"{self.name} - {self.client.company_name}"
+        display_str = None
+        if self.is_global:
+            display_str = "Global: Terramo Admin"
+        else:
+            display_str =  f"{self.name} - {self.client.company_name}"
+        return display_str
     
     def get_invite_full_url(self):
-        return f"{settings.FRONTEND_DOMAIN_URL}/stakeholder/accept-invitation/{self.invitation_token}/"
-
+        invite_url = f"{settings.FRONTEND_DOMAIN_URL}/stakeholder/accept-invitation/{self.invitation_token}/"
+        if self.created_by.role == "terramo_admin" and self.is_global:
+            return invite_url
+        return f"{invite_url}client/{self.client.id}"
+    
+    def save(self, *args, **kwargs):
+        # always set the show_in_table to True for global StakeholderGroups
+        if self.is_global:
+            self.show_in_table = True
+       
+        super().save(*args, **kwargs)
+        
 class Stakeholder(models.Model):
     """Stakeholder model - not in User table"""
     
@@ -169,11 +195,20 @@ class Stakeholder(models.Model):
     last_name = models.CharField(max_length=100, blank=True)
     group = models.ForeignKey(StakeholderGroup, on_delete=models.CASCADE, related_name='stakeholders')
     is_registered = models.BooleanField(default=False)
+    client = models.ForeignKey(
+        Client,
+        on_delete=models.CASCADE,
+        related_name='clientstakeholders',
+        blank=True,
+        null=True,
+        help_text="Which client this stakeholder belongs to"
+    )
     status = models.CharField(max_length=20, choices=STATUS_CHOICES, default='pending')
     created_at = models.DateTimeField(auto_now_add=True)
     last_login = models.DateTimeField(null=True, blank=True)
     user = models.OneToOneField(User, on_delete=models.SET_NULL, null=True, blank=True, related_name='usr_stakeholder')
-    
+    is_active = models.BooleanField(default=True)
+
     class Meta:
         unique_together = ['email', 'group']
     
@@ -285,13 +320,13 @@ class InvitationToken(models.Model):
     token_type = models.CharField(max_length=25, choices=TOKEN_TYPES)
     
     # For client admin invitations
-    client_admin = models.ForeignKey(
-        ClientAdmin, 
-        on_delete=models.CASCADE, 
-        null=True, 
-        blank=True,
-        related_name='invitation_tokens'
-    )
+    # client_admin = models.ForeignKey(
+    #     ClientAdmin, 
+    #     on_delete=models.CASCADE, 
+    #     null=True, 
+    #     blank=True,
+    #     related_name='invitation_tokens'
+    # )
     
     # For stakeholder invitations
     stakeholder = models.ForeignKey(
@@ -391,13 +426,13 @@ class LoginSession(models.Model):
     session_type = models.CharField(max_length=20, choices=SESSION_TYPES)
     
     # For client admin sessions
-    client_admin = models.ForeignKey(
-        ClientAdmin,
-        on_delete=models.CASCADE,
-        null=True,
-        blank=True,
-        related_name='login_sessions'
-    )
+    # client_admin = models.ForeignKey(
+    #     ClientAdmin,
+    #     on_delete=models.CASCADE,
+    #     null=True,
+    #     blank=True,
+    #     related_name='login_sessions'
+    # )
     
     # For stakeholder sessions
     stakeholder = models.ForeignKey(
@@ -1077,3 +1112,657 @@ class StakeholderLoginToken(models.Model):
     def get_login_url(self):
         """Generate the login URL"""
         return f"{settings.FRONTEND_DOMAIN_URL}/stakeholder/login/{self.token}/"
+
+
+
+
+
+# ========================================================================================================
+# |     START: UPDATED OPTIMIZED STAKEHOLDER GROUPS                                                      |
+# ========================================================================================================
+"""
+Optimized Stakeholder Management Models
+Following Django best practices for multi-tenant application
+"""
+import uuid
+from django.db import models
+from django.core.exceptions import ValidationError
+from django.db.models import Q
+
+
+class StakeholderGroupManager(models.Manager):
+    """Custom manager for stakeholder groups with useful querysets"""
+    
+    def templates(self):
+        """Return only template groups"""
+        return self.filter(client__isnull=True, template__isnull=True, is_active=True)
+    
+    def for_client(self, client):
+        """Return all groups available to a specific client (templates + their own)"""
+        return self.filter(
+            Q(client=client) | Q(client__isnull=True, template__isnull=True),
+            is_active=True
+        ).distinct()
+    
+    def client_only(self, client):
+        """Return groups that belong specifically to a client (not templates)"""
+        return self.filter(client=client, is_active=True)
+    
+    def client_custom(self, client):
+        """Return only custom groups created by the client"""
+        return self.filter(client=client, template__isnull=True, is_active=True)
+    
+    def client_instances(self, client):
+        """Return only instances created from templates for the client"""
+        return self.filter(client=client, template__isnull=False, is_active=True)
+    
+    def available_to_client(self, client):
+        """Return all groups that client can use to create stakeholders"""
+        # Templates are globally available + client's own groups
+        return self.filter(
+            Q(client__isnull=True, template__isnull=True) |  # Global templates
+            Q(client=client),  # Client's own groups
+            is_active=True
+        ).distinct()
+
+
+class StakeholderGroupTerramo(models.Model):
+    """
+    Stakeholder groups that can be either:
+    - Templates: client=None, template=None (created by terramo_admin)
+    - Client instances: client=Client, template=Template (deployed from templates)
+    - Custom groups: client=Client, template=None (created by client_admin)
+    """
+    
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    name = models.CharField(max_length=100, db_index=True)
+    description = models.TextField(blank=True, help_text="Optional description")
+    
+    # Nullable for template groups, specific client for instances
+    client = models.ForeignKey(
+        Client,  
+        on_delete=models.CASCADE, 
+        related_name='stakeholder_groups_terramo',
+        null=True, 
+        blank=True,
+        help_text="Leave empty for templates"
+    )
+    
+    # Self-referencing for template relationship
+    template = models.ForeignKey(
+        'self',
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='instances',
+        help_text="Template this group was created from"
+    )
+    
+    created_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL, 
+        on_delete=models.SET_NULL, 
+        null=True,
+        related_name='created_stakeholder_groups'
+    )
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+    is_active = models.BooleanField(default=True, db_index=True)
+    
+    # Additional fields for better functionality
+    sort_order = models.PositiveIntegerField(default=0, help_text="Display order")
+    
+    # Manager
+    objects = StakeholderGroupManager()
+
+    class Meta:
+        db_table = 'stakeholder_group_terramo'
+        constraints = [
+            # Templates: unique names globally
+            models.UniqueConstraint(
+                fields=['name'],
+                condition=Q(client__isnull=True, template__isnull=True),
+                name='unique_template_terramogroup_name'
+            ),
+            # Client groups: unique names per client
+            models.UniqueConstraint(
+                fields=['name', 'client'],
+                condition=Q(client__isnull=False),
+                name='unique_client_terramo_group_name'
+            ),
+        ]
+        
+        indexes = [
+            models.Index(fields=['client', 'is_active']),
+            models.Index(fields=['template']),
+            models.Index(fields=['is_active', 'sort_order']),
+            models.Index(fields=['created_at']),
+        ]
+        
+        ordering = ['sort_order', 'name']
+    
+    def __str__(self):
+        if self.is_template:
+            return f"Template: {self.name}"
+        elif self.client:
+            return f"{self.client.company_name} - {self.name}"
+        return self.name
+    
+    def clean(self):
+        """Model validation"""
+        super().clean()
+        
+        # Validate template logic
+        if self.template and self.client is None:
+            raise ValidationError("Groups with templates must have a client")
+        
+        # Validate template cannot reference itself
+        if self.template == self:
+            raise ValidationError("Template cannot reference itself")
+    
+    @property
+    def is_template(self):
+        """Returns True if this is a template"""
+        return self.client is None and self.template is None
+    
+    @property
+    def is_custom(self):
+        """Returns True if this is a custom client group"""
+        return self.client is not None and self.template is None
+    
+    @property
+    def is_from_template(self):
+        """Returns True if this was created from a template"""
+        return self.template is not None
+    
+    @property
+    def group_type(self):
+        """Return human-readable group type"""
+        if self.is_template:
+            return "Template"
+        elif self.is_custom:
+            return "Custom"
+        elif self.is_from_template:
+            return "From Template"
+        return "Unknown"
+    
+    def can_add_stakeholders(self):
+        """Check if stakeholders can be added to this group"""
+        # Templates (global groups) can have stakeholders from any client
+        # Client groups can have stakeholders
+        return True
+    
+    def can_be_used_by_client(self, client):
+        """Check if this group can be used by a specific client"""
+        if self.is_template:
+            return True  # Templates are available to all clients
+        return self.client == client  # Client groups only for that client
+    
+    def get_effective_client_for_stakeholder(self, stakeholder_client=None):
+        """
+        For templates: return the stakeholder's client
+        For client groups: return the group's client
+        """
+        if self.is_template:
+            return stakeholder_client
+        return self.client
+    
+    def can_be_modified_by_user(self, user):
+        """Check if user can modify this group"""
+        if not user or not user.is_authenticated:
+            return False
+            
+        if hasattr(user, 'role'):
+            if user.role == 'terramo_admin':
+                return True
+            elif user.role == 'client_admin' and self.client == getattr(user, 'client', None):
+                return True
+        return False
+    
+    def can_add_stakeholders(self):
+        """Check if stakeholders can be added to this group"""
+        # Templates (global groups) can have stakeholders from any client
+        # Client groups can have stakeholders
+        return True
+    
+    def can_be_used_by_client(self, client):
+        """Check if this group can be used by a specific client"""
+        if self.is_template:
+            return True  # Templates are available to all clients
+        return self.client == client  # Client groups only for that client
+    
+    def get_effective_client_for_stakeholder(self, stakeholder_client=None):
+        """
+        For templates: return the stakeholder's client
+        For client groups: return the group's client
+        """
+        if self.is_template:
+            return stakeholder_client
+        return self.client
+    
+    def can_be_deleted_by_user(self, user):
+        """Check if user can delete this group"""
+        if not self.can_be_modified_by_user(user):
+            return False
+        
+        # Check if group has stakeholders
+        if self.stakeholders.exists():
+            return False
+            
+        return True
+    
+    def get_stakeholder_count(self):
+        """Get number of active stakeholders in this group"""
+        return self.stakeholders.filter(is_active=True).count()
+    
+    def get_stakeholder_count_for_client(self, client):
+        """Get number of active stakeholders for a specific client in this group"""
+        return self.stakeholders.filter(client=client, is_active=True).count()
+    
+    def get_stakeholder_users(self, client):
+        """Get number of active stakeholders for a specific client in this group"""
+        return self.stakeholders.filter(client=client, is_active=True)
+  
+    def get_pending_invitations_count(self):
+        """Get number of pending invitations"""
+        return self.invitations.filter(is_active=True, expires_at__gt=timezone.now()).count()
+    
+    @classmethod
+    def create_stakeholder_in_group(cls, group, client, email, **stakeholder_data):
+        """Helper method to create a stakeholder in a group with proper validation"""
+        if not group.can_be_used_by_client(client):
+            raise ValueError(f"Client {client} cannot use group {group}")
+        
+        # For template groups, any client can add stakeholders
+        # For client groups, only that client can add stakeholders
+        stakeholder_data.update({
+            'group': group,
+            'client': client,
+            'email': email
+        })
+        
+        return StakeholderTerramo.objects.create(**stakeholder_data)
+
+
+class StakeholderGroupInvitationManager(models.Manager):
+    """Custom manager for invitations"""
+    
+    def active(self):
+        """Return only active, non-expired invitations"""
+        return self.filter(
+            is_active=True,
+            expires_at__gt=timezone.now()
+        )
+    
+    def expired(self):
+        """Return expired invitations"""
+        return self.filter(expires_at__lte=timezone.now())
+    
+    def for_group(self, group):
+        """Return invitations for a specific group"""
+        return self.filter(stakeholder_group=group)
+
+
+class StakeholderGroupInvitationTerramo(models.Model):
+    """
+    Temporary invitation links for stakeholder groups
+    Generated on-demand with expiration
+    """
+    
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    
+    stakeholder_group = models.ForeignKey(
+        StakeholderGroupTerramo,
+        on_delete=models.CASCADE,
+        related_name='invitations'
+    )
+    
+    # Unique invitation token
+    token = models.UUIDField(default=uuid.uuid4, unique=True, editable=False)
+    
+    # Who created this invitation
+    created_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.SET_NULL,
+        null=True,
+        related_name='created_stakeholder_invitations'
+    )
+    
+    # Timing
+    created_at = models.DateTimeField(auto_now_add=True)
+    # expires_at = models.DateTimeField()
+    expires_at = models.DateTimeField(null=True, blank=True)
+    days_to_expire = models.PositiveIntegerField(default=7,verbose_name=_('Days to Expire'))
+
+    # Status
+    is_active = models.BooleanField(default=True, db_index=True)
+    
+    # Usage tracking
+    used_at = models.DateTimeField(null=True, blank=True)
+    used_by_email = models.EmailField(null=True, blank=True)
+    
+    # Custom message for this invitation
+    message = models.TextField(
+        blank=True,
+        help_text="Custom invitation message"
+    )
+    
+    # Max usage (0 = unlimited)
+    max_uses = models.PositiveIntegerField(default=1, help_text="Maximum number of uses (0 = unlimited)")
+    current_uses = models.PositiveIntegerField(default=0)
+    
+    # Manager
+    objects = StakeholderGroupInvitationManager()
+
+    class Meta:
+        db_table = 'stakeholder_group_invitation_terramo'
+        indexes = [
+            models.Index(fields=['token']),
+            models.Index(fields=['expires_at', 'is_active']),
+            models.Index(fields=['stakeholder_group', 'is_active']),
+            models.Index(fields=['created_at']),
+        ]
+        ordering = ['-created_at']
+
+    def __str__(self):
+        return f"Invitation for {self.stakeholder_group} (expires {self.expires_at.strftime('%Y-%m-%d %H:%M')})"
+    
+    def clean(self):
+        """Model validation"""
+        super().clean()
+        
+        if self.expires_at and self.expires_at <= timezone.now():
+            raise ValidationError("Expiry date must be in the future")
+    
+    @property
+    def is_expired(self):
+        """Check if invitation has expired"""
+        return timezone.now() > self.expires_at
+    
+    @property
+    def is_valid(self):
+        """Check if invitation is still valid"""
+        if not self.is_active or self.is_expired:
+            return False
+            
+        # Check usage limits
+        if self.max_uses > 0 and self.current_uses >= self.max_uses:
+            return False
+            
+        return True
+    
+    @property
+    def remaining_uses(self):
+        """Get remaining uses (None if unlimited)"""
+        if self.max_uses == 0:
+            return None
+        return max(0, self.max_uses - self.current_uses)
+    
+    def get_invitation_url(self):
+        """Generate the full invitation URL"""
+        base_url = getattr(settings, 'FRONTEND_DOMAIN_URL', 'http://localhost:3000')
+        return f"{base_url}/stakeholder/accept-invitation/{self.token}/"
+    
+    def mark_as_used(self, email=None):
+        """Mark invitation as used"""
+        if not self.is_valid:
+            raise ValidationError("Cannot use invalid invitation")
+            
+        self.current_uses += 1
+        if email:
+            self.used_by_email = email
+        
+        # Mark as used for single-use invitations
+        if self.max_uses == 1:
+            self.used_at = timezone.now()
+            
+        self.save(update_fields=['current_uses', 'used_by_email', 'used_at'])
+    
+    def save(self, *args, **kwargs):
+        """Override save to set default expiry"""
+        # Set expiry time if not provided (7 days from creation)
+        if not self.expires_at:
+            self.expires_at = timezone.now() + timedelta(days=self.days_to_expire or 7)
+        super().save(*args, **kwargs)
+    
+    @classmethod
+    def create_invitation(cls, stakeholder_group, created_by, hours_valid=24, message="", max_uses=1):
+        """Create a new invitation with expiry"""
+        expires_at = timezone.now() + timedelta(hours=hours_valid)
+        
+        return cls.objects.create(
+            stakeholder_group=stakeholder_group,
+            created_by=created_by,
+            expires_at=expires_at,
+            message=message,
+            max_uses=max_uses
+        )
+    
+    @classmethod
+    def cleanup_expired(cls):
+        """Remove expired invitations"""
+        expired_count, _ = cls.objects.filter(
+            expires_at__lt=timezone.now()
+        ).delete()
+        return expired_count
+
+
+class StakeholderTerramoManager(models.Manager):
+    """Custom manager for stakeholders"""
+    
+    def active(self):
+        """Return only active stakeholders"""
+        return self.filter(is_active=True)
+    
+    def registered(self):
+        """Return only registered stakeholders"""
+        return self.filter(is_registered=True)
+    
+    def pending(self):
+        """Return stakeholders with pending status"""
+        return self.filter(status='pending')
+    
+    def for_client(self, client):
+        """Return stakeholders for a specific client"""
+        return self.filter(group__client=client)
+    
+    def for_group(self, group):
+        """Return stakeholders for a specific group"""
+        return self.filter(group=group)
+
+
+class StakeholderTerramo(models.Model):
+    """Stakeholder model - separate from User table for flexibility"""
+    
+    STATUS_CHOICES = [
+        ('pending', 'Pending'),
+        ('invited', 'Invited'),
+        ('approved', 'Approved'),
+        ('rejected', 'Rejected'),
+        ('inactive', 'Inactive'),
+    ]
+    
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    email = models.EmailField(validators=[EmailValidator()], db_index=True)
+    first_name = models.CharField(max_length=100, blank=True)
+    last_name = models.CharField(max_length=100, blank=True)
+    
+    group = models.ForeignKey(
+        StakeholderGroupTerramo, 
+        on_delete=models.CASCADE, 
+        related_name='stakeholders'
+    )
+    
+    # IMPORTANT: For template groups, this indicates which client the stakeholder belongs to
+    client = models.ForeignKey(
+        Client,
+        on_delete=models.CASCADE,
+        related_name='stakeholders',
+        help_text="Which client this stakeholder belongs to"
+    )
+    
+    is_registered = models.BooleanField(default=False, db_index=True)
+    is_active = models.BooleanField(default=True, db_index=True)
+    status = models.CharField(max_length=20, choices=STATUS_CHOICES, default='pending', db_index=True)
+    
+    # Timestamps
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+    last_login = models.DateTimeField(null=True, blank=True)
+    
+    # User relationship (optional - for registered stakeholders)
+    user = models.OneToOneField(
+        settings.AUTH_USER_MODEL, 
+        on_delete=models.SET_NULL, 
+        null=True, 
+        blank=True, 
+        related_name='stakeholder_profile'
+    )
+    
+    # Track which invitation was used
+    invitation_used = models.ForeignKey(
+        StakeholderGroupInvitationTerramo,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='resulting_stakeholders'
+    )
+    
+    # Additional fields
+    phone = models.CharField(max_length=20, blank=True)
+    organization = models.CharField(max_length=200, blank=True)
+    role_in_organization = models.CharField(max_length=100, blank=True)
+    
+    # Manager
+    objects = StakeholderTerramoManager()
+    
+    class Meta:
+        db_table = 'stakeholder_terramo'
+        constraints = [
+            models.UniqueConstraint(
+                fields=['email', 'group', 'client'],
+                name='unique_stakeholder_per_group_client'
+            ),
+        ]
+        indexes = [
+            models.Index(fields=['email', 'is_active']),
+            models.Index(fields=['group', 'client', 'status']),
+            models.Index(fields=['client', 'is_active']),
+            models.Index(fields=['is_registered', 'is_active']),
+            models.Index(fields=['created_at']),
+        ]
+        ordering = ['last_name', 'first_name', 'email']
+    
+    def __str__(self):
+        return f"{self.full_name} ({self.email}) - {self.group.name}"
+    
+    def clean(self):
+        """Model validation"""
+        super().clean()
+        
+        # Validate that client can use this group
+        if self.group and not self.group.can_be_used_by_client(self.client):
+            raise ValidationError("Client cannot use this stakeholder group")
+        
+        # For client-specific groups, stakeholder must belong to same client
+        if self.group and not self.group.is_template and self.group.client != self.client:
+            raise ValidationError("Stakeholder client must match group client")
+        
+        # Validate status transitions
+        if self.pk:  # Existing object
+            old_instance = StakeholderTerramo.objects.get(pk=self.pk)
+            if old_instance.status == 'approved' and self.status == 'pending':
+                raise ValidationError("Cannot change status from approved back to pending")
+    
+    @property
+    def full_name(self):
+        """Get full name or email if name is empty"""
+        name = f"{self.first_name} {self.last_name}".strip()
+        return name if name else self.email
+    
+    @property
+    def display_name(self):
+        """Get display name for UI"""
+        if self.first_name or self.last_name:
+            return self.full_name
+        return self.email.split('@')[0]  # Use email prefix if no name
+    
+    @property
+    def effective_client(self):
+        """Get the client this stakeholder belongs to"""
+        return self.client
+    
+    def can_be_modified_by_user(self, user):
+        """Check if user can modify this stakeholder"""
+        if not user or not user.is_authenticated:
+            return False
+            
+        if hasattr(user, 'role'):
+            if user.role == 'terramo_admin':
+                return True
+            elif user.role == 'client_admin' and self.client == getattr(user, 'client', None):
+                return True
+        return False
+    
+    def approve(self, approved_by=None):
+        """Approve stakeholder"""
+        self.status = 'approved'
+        self.save(update_fields=['status', 'updated_at'])
+    
+    def reject(self, rejected_by=None):
+        """Reject stakeholder"""
+        self.status = 'rejected'
+        self.save(update_fields=['status', 'updated_at'])
+    
+    def deactivate(self):
+        """Deactivate stakeholder"""
+        self.is_active = False
+        self.status = 'inactive'
+        self.save(update_fields=['is_active', 'status', 'updated_at'])
+    
+    def reactivate(self):
+        """Reactivate stakeholder"""
+        self.is_active = True
+        if self.status == 'inactive':
+            self.status = 'approved'  # or whatever default active status
+        self.save(update_fields=['is_active', 'status', 'updated_at'])
+    
+    def update_last_login(self):
+        """Update last login timestamp"""
+        self.last_login = timezone.now()
+        self.save(update_fields=['last_login'])
+
+
+# Additional utility models/functions can be added here
+class StakeholderActivityLog(models.Model):
+    """Log stakeholder activities for auditing"""
+    
+    stakeholder = models.ForeignKey(
+        StakeholderTerramo,
+        on_delete=models.CASCADE,
+        related_name='activity_logs'
+    )
+    
+    action = models.CharField(max_length=100)
+    description = models.TextField(blank=True)
+    performed_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True
+    )
+    timestamp = models.DateTimeField(auto_now_add=True)
+    ip_address = models.GenericIPAddressField(null=True, blank=True)
+    
+    class Meta:
+        db_table = 'stakeholder_activity_log'
+        indexes = [
+            models.Index(fields=['stakeholder', 'timestamp']),
+            models.Index(fields=['action', 'timestamp']),
+        ]
+        ordering = ['-timestamp']
+    
+    def __str__(self):
+        return f"{self.stakeholder.email} - {self.action} at {self.timestamp}"
+# =======================================================================================================
+# |     END: UPDATED OPTIMIZED STAKEHOLDER GROUPS                                                       |
+# =======================================================================================================

@@ -2,7 +2,7 @@ from django.contrib import admin
 from django.urls import path, include
 from rest_framework.routers import DefaultRouter
 
-from .views import InvitationAcceptView, ClientViewSet, GetInvitationFormView, ClientViewDataSet, InvitationAcceptDataView, ClientAdminAcceptInvitationView, ClientAdminLogoutView, ClientAdminCustomLogoutView, ClientAdminVerifyInvitationtokenView, ClientAdminLoginTokenView, ClientAdminRequestLoginView, ClientAdminTokenLoginView
+from .views import InvitationAcceptView, ClientViewSet, GetInvitationFormView, ClientViewDataSet, InvitationAcceptDataView, ClientAdminAcceptInvitationView, ClientAdminLogoutView, ClientAdminCustomLogoutView, ClientAdminVerifyInvitationtokenView, ClientAdminLoginTokenView, ClientAdminRequestLoginView, ClientAdminTokenLoginView,ClientAdminAcceptInvitationViewOld
 router = DefaultRouter()
 app_name = 'clients'
  
@@ -19,7 +19,7 @@ urlpatterns = [
     path('invitation/form/', GetInvitationFormView.as_view(), name='get-invitation-form'),
     path("invitations/accept/<uuid:token>/", InvitationAcceptDataView.as_view(), name='api_accept_invite'),
 
-    # client admin
+    # client admin * 
     path('client-admin/accept-invite/<uuid:token>/', ClientAdminAcceptInvitationView.as_view(), name='client-admin-accept-invite'),
     path('client-admin/login-token/<uuid:token>/', ClientAdminLoginTokenView.as_view(), name='client-admin-login-token'),
     # path('/accept-invitation/<uuid:token>/', GetInvitationFormView.as_view(), name='get-invitation-form'),

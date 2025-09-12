@@ -87,7 +87,7 @@ from .models import (
 )
 from core_apps.authentication.models import Stakeholder
 from core_apps.clients.models import Client
-
+from core_apps.clients.serializers import ClientProductSerializer
 # User = get_user_model()
 User = settings.AUTH_USER_MODEL
 
@@ -96,7 +96,23 @@ class ESGYearSerializer(serializers.ModelSerializer):
     class Meta:
         model = ESGYear
         fields = ['id', 'year', 'is_active', 'is_current', 'created_at', 'updated_at']
+class ClientFullDetailsSerializer(serializers.ModelSerializer):
+    """Details for clients"""
+ 
+    # purchased_products = serializers.SerializerMethodField()
+    client_products = ClientProductSerializer(
+        source='clientproduct_set',
+        many=True,
+        read_only=True
+    )
+    class Meta:
+        model = Client
+        fields = [
+            'id', 'company_name', 'company_photo', 'client_products'
+        ]
 
+    # def get_purchased_products(self, obj):
+    #     return obj.clientproduct_set.filter(is_active=True)
 
 class ESGCategorySerializer(serializers.ModelSerializer):
     class Meta:

@@ -3,7 +3,7 @@ from dotenv import load_dotenv
 from os import getenv, path
 from loguru import logger
 from datetime import timedelta, date
-# import cloudinary
+import cloudinary
 import os
 
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
@@ -49,7 +49,7 @@ THIRD_PARTY_APPS = [
     "phonenumber_field",
     "drf_spectacular",
     "djoser",
-    # "cloudinary",
+    "cloudinary",
     "django_filters",
     "djcelery_email",
     "django_celery_beat",
@@ -229,8 +229,8 @@ REST_FRAMEWORK = {
         "rest_framework.throttling.UserRateThrottle",
     ],
     "DEFAULT_THROTTLE_RATES": {
-        "anon": "50/day",
-        "user": "100/day",
+        "anon": "10000/day", # for development only change in production
+        "user": "10000/day", # for development only change in production
     },
 }
 
@@ -295,15 +295,15 @@ CELERY_WORKER_SEND_TASK_EVENTS = True
 #     },
 # }
 
-# CLOUDINARY_CLOUD_NAME = getenv("CLOUDINARY_CLOUD_NAME")
-# CLOUDINARY_API_KEY = getenv("CLOUDINARY_API_KEY")
-# CLOUDINARY_API_SECRET = getenv("CLOUDINARY_API_SECRET")
+CLOUDINARY_CLOUD_NAME = getenv("CLOUDINARY_CLOUD_NAME")
+CLOUDINARY_API_KEY = getenv("CLOUDINARY_API_KEY")
+CLOUDINARY_API_SECRET = getenv("CLOUDINARY_API_SECRET")
 
-# cloudinary.config(
-#     cloud_name=CLOUDINARY_CLOUD_NAME,
-#     api_key=CLOUDINARY_API_KEY,
-#     api_secret=CLOUDINARY_API_SECRET,
-# )
+cloudinary.config(
+    cloud_name=CLOUDINARY_CLOUD_NAME,
+    api_key=CLOUDINARY_API_KEY,
+    api_secret=CLOUDINARY_API_SECRET,
+)
 
 COOKIE_NAME = "access"
 

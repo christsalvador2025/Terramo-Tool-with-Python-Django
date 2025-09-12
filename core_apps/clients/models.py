@@ -1,7 +1,8 @@
 from django.db import models
 from django import forms
+from cloudinary.models import CloudinaryField
 from django.contrib.auth.models import AbstractUser
-from django.core.validators import MinValueValidator, MaxValueValidator
+from django.core.validators import MinValueValidator, MaxValueValidator, EmailValidator
 from django.utils import timezone
 from django.conf import settings
 from django.utils.translation import gettext_lazy as _
@@ -20,11 +21,12 @@ User = settings.AUTH_USER_MODEL
 # email = models.EmailField(unique=True, validators=[EmailValidator()])
 DEFAULT_STAKEHOLDER_GROUP_NAMES = ["Management / Executive Board"]
 
-def client_image_path(instance, filename):
-    """Generate file path for client images"""
-    ext = filename.split('.')[-1]
-    filename = f'{uuid.uuid4()}.{ext}'
-    return os.path.join('clients', filename)
+# def client_image_path(instance, filename):
+#     """Generate file path for client images"""
+#     ext = filename.split('.')[-1]
+#     filename = f'{uuid.uuid4()}.{ext}'
+#     return os.path.join('clients', filename)
+
 class Client(TimeStampedModel):
     """Client/Customer entity"""
     class Salutation(models.TextChoices):
@@ -66,12 +68,19 @@ class Client(TimeStampedModel):
     company_name = models.CharField(max_length=200, null=False, blank=True)
     date = models.DateField(default=timezone.now)
   
-    company_photo = models.ImageField(
-        verbose_name=_("Company Photo"), 
-        default="/company_default.png",
-        # upload_to=client_image_path,
-        upload_to="uploads/"
+    # company_photo = models.ImageField(
+    #     verbose_name=_("Company Photo"), 
+    #     default="/company_default.png",
+    #     # upload_to=client_image_path,
+    #     upload_to="uploads/"
+    # )
+
+    company_photo = CloudinaryField(
+        _("Company Photo"),
+        blank=True,
+        null=True,
     )
+    company_photo_url = models.URLField(_("Company Photo URL"), blank=True, null=True)
     role = models.CharField(max_length=20, choices=CompanyRole.choices, default=CompanyRole.TERRAMO_CUSTOMER)
 
  
@@ -80,8 +89,8 @@ class Client(TimeStampedModel):
     |   Contact Person
     ------------------------------------------------------------------------------
     """
-    contact_person_first_name = models.CharField(_("Contact Person First Name"), max_length=200, null=False, blank=False)
-    contact_person_last_name = models.CharField(_("Contact Person Last Name"),max_length=200, null=False, blank=True)
+    contact_person_first_name = models.CharField(_("Contact Person First Name"), max_length=200, null=True, blank=False)
+    contact_person_last_name = models.CharField(_("Contact Person Last Name"),max_length=200, null=True, blank=True)
     gender = models.CharField(
         _("Gender"), max_length=8, choices=Gender.choices, default=Gender.MALE
     )
@@ -105,7 +114,7 @@ class Client(TimeStampedModel):
     )
     city = models.CharField(_("City"), max_length=50)
     land = CountryField(_("Land"), default=settings.DEFAULT_COUNTRY)
-    email = models.EmailField(blank=False, null=False)
+    email = models.EmailField(blank=True, null=True)
     invitation_token = models.UUIDField(default=uuid.uuid4, unique=True, editable=False)
 
     
@@ -127,11 +136,6 @@ class Client(TimeStampedModel):
     
     def __str__(self):
         return self.company_name
-    
-class InvitationStatus(models.TextChoices):
-    NOT_ACCEPTED = 'not_accepted', _('Not Accepted')
-    ACCEPTED = 'accepted', _('Accepted (Link Clicked)')
-    REGISTERED = 'registered', _('Registered (Account Created)')
 
 
 class ClientInvitation(TimeStampedModel):
@@ -141,13 +145,16 @@ class ClientInvitation(TimeStampedModel):
         on_delete=models.CASCADE, 
         related_name='clientadmin_invitation'   
     )
-
+    
     accepted_at = models.DateTimeField(null=True, blank=True, verbose_name=_('Accepted At'))
 
     is_active = models.BooleanField(default=True, verbose_name=_('Is Active'))
     email_verified = models.BooleanField(default=False, verbose_name=_('Is Email Verified'))
     is_accepted = models.BooleanField(default=False, verbose_name=_('Is Accepted'))
-    
+    expires_at = models.DateTimeField(null=True, blank=True)
+    days_to_expire = models.PositiveIntegerField(default=7,verbose_name=_('Days to Expire'))
+   
+
     # year = models.PositiveIntegerField(blank=False, null=False, help_text="YYYY")
 
     class Meta:
@@ -155,19 +162,68 @@ class ClientInvitation(TimeStampedModel):
         verbose_name_plural = _('Client Invitations')
         ordering = ['-created_at']
 
-  
-
     def __str__(self):
         return f"{self.client.company_name} - {self.client.email}"
 
     def get_invite_url(self):
-        
         # example : http://localhost:3000/client-admin/accept-invitation/96b78b5e-e88e-4577-b9ce-fcc7cac67c8d/
         return f"{settings.FRONTEND_DOMAIN_URL}/{settings.FRONTEND_CLIENT_ACCEPT_ENDPOINT}/{self.token}/"
     
     def is_already_accepted_and_verified(self):
         # A link is valid for acceptance if it's active, not expired, and not yet registered
         return self.is_active and self.email_verified and self.is_accepted
+    
+    @property
+    def is_expired(self):
+        return timezone.now() > self.expires_at
+    
+    def save(self, *args, **kwargs):
+        # if not self.token:
+        #     self.token = secrets.token_urlsafe(32)
+        self.expires_at = timezone.now() + timedelta(days=self.days_to_expire)
+        super().save(*args, **kwargs)
+
+class ClientAdmin(TimeStampedModel):
+    # class Gender(models.TextChoices):
+    #     MALE = (
+    #         "male",
+    #         _("Male"),
+    #     )
+    #     FEMALE = (
+    #         "female",
+    #         _("Female"),
+    #     )
+    #     OTHER = (
+    #         "other",
+    #         _("Other"),
+    #     )
+
+    client = models.OneToOneField(Client, on_delete=models.CASCADE, related_name='client_admin')
+    email = models.EmailField(unique=True, validators=[EmailValidator()])
+    first_name = models.CharField(max_length=100)
+    last_name = models.CharField(max_length=100)
+    is_active = models.BooleanField(default=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    last_login = models.DateTimeField(null=True, blank=True)
+    invitation_used = models.OneToOneField(ClientInvitation, on_delete=models.CASCADE, null=True,blank=True, related_name='client_admin_invitation')
+    
+    # gender = models.CharField(
+    #     _("Gender"), max_length=8, choices=Gender.choices, default=Gender.MALE
+    # )
+    # country = CountryField(_("Country"), default=settings.DEFAULT_COUNTRY)
+    # year_of_birth = models.PositiveIntegerField(blank=False, null=False, help_text="YYYY")
+
+    
+    def __str__(self):
+        return f"{self.email} - {self.client.company_name}"
+
+class InvitationStatus(models.TextChoices):
+    NOT_ACCEPTED = 'not_accepted', _('Not Accepted')
+    ACCEPTED = 'accepted', _('Accepted (Link Clicked)')
+    REGISTERED = 'registered', _('Registered (Account Created)')
+
+
+
     
     # def is_expired(self):
     #     return self.expires_at and self.expires_at < timezone.now()

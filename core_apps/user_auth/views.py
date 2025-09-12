@@ -354,23 +354,56 @@ class CustomTokenRefreshView(TokenRefreshView):
     Custom token refresh view that includes cookies and better error handling
     """
     throttle_classes = [UserRateThrottle]
-    
-    def post(self, request, *args, **kwargs):
-        try:
-            response = super().post(request, *args, **kwargs)
+    def post(self, request: Request, *args: Any, **kwargs: Any) -> Response:
+        refresh_token = request.COOKIES.get("refresh")
+
+        if refresh_token:
+            request.data["refresh"] = refresh_token
+
+        refresh_res = super().post(request, *args, **kwargs)
+
+        if refresh_res.status_code == status.HTTP_200_OK:
+            access_token = refresh_res.data.get("access")
+            refresh_token = refresh_res.data.get("refresh")
+
+            if access_token and refresh_token:
+                set_auth_cookies(
+                    refresh_res,
+                    access_token=access_token,
+                    refresh_token=refresh_token,
+                )
+
+                refresh_res.data.pop("access", None)
+                refresh_res.data.pop("refresh", None)
+
+                refresh_res.data["message"] = "Access tokens refreshed successfully."
+
+            else:
+                refresh_res.data["message"] = (
+                    "Access or refresh token not found in refresh response data"
+                )
+                logger.error(
+                    "Access or refresh token not found in refresh response data"
+                )
+
+        return refresh_res
+
+    # def post(self, request, *args, **kwargs):
+    #     try:
+    #         response = super().post(request, *args, **kwargs)
             
-            if response.status_code == 200:
-                access_token = response.data.get('access')
-                if access_token:
-                    set_auth_cookies(response, access_token)
+    #         if response.status_code == 200:
+    #             access_token = response.data.get('access')
+    #             if access_token:
+    #                 set_auth_cookies(response, access_token)
             
-            return response
-        except (TokenError, InvalidToken) as e:
-            logger.warning(f"Token refresh failed: {e}")
-            return Response(
-                {'error': 'Invalid or expired refresh token'}, 
-                status=status.HTTP_401_UNAUTHORIZED
-            )
+    #         return response
+    #     except (TokenError, InvalidToken) as e:
+    #         logger.warning(f"Token refresh failed: {e}")
+    #         return Response(
+    #             {'error': 'Invalid or expired refresh token'}, 
+    #             status=status.HTTP_401_UNAUTHORIZED
+    #         )
 
 
 # class LoginView(APIView):
