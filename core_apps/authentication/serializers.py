@@ -4,6 +4,7 @@ from django.core.validators import EmailValidator
 from .models import (  Stakeholder, 
     StakeholderGroup, InvitationToken, LoginSession, StakeholderInvitation
 )
+
 from core_apps.clients.models import Client
 from django.conf import settings
 User = settings.AUTH_USER_MODEL
@@ -534,12 +535,12 @@ class EmailSubmissionSerializer(serializers.Serializer):
     """Serializer for email submission in invitation process."""
     email = serializers.EmailField()
     token = serializers.UUIDField()  # StakeholderGroup.invitation_token
-
+    client_id = serializers.UUIDField()
     def validate(self, attrs):
         # normalize email
         email = (attrs.get("email") or "").strip().lower()
         token = attrs.get("token")
-
+        client_id = attrs.get("client_id")
         # find active group via invitation token
         try:
             
@@ -547,6 +548,11 @@ class EmailSubmissionSerializer(serializers.Serializer):
                 invitation_token=token,
                 is_active=True,
                 disable_the_invitation=False
+            )
+            client_data = Client.objects.get(
+                id=client_id,
+                is_active=True,
+                # disable_the_invitation=False
             )
         except StakeholderGroup.DoesNotExist:
             raise serializers.ValidationError({"token": [f"Invalid invitation token."]})
@@ -570,6 +576,7 @@ class EmailSubmissionSerializer(serializers.Serializer):
 
         attrs.update({
             "email": email,
+            "client":client_data,
             "stakeholder_group": stakeholder_group,
             "existing_stakeholder": existing_stakeholder,
             "existing_invitation": existing_invitation,
@@ -655,6 +662,7 @@ class StakeholderRegistrationSerializer(serializers.Serializer):
     last_name = serializers.CharField(max_length=100)
     # stakeholder_id = serializers.UUIDField() # this is the stakeholder id pass by payload
     token = serializers.UUIDField() # this is an id of the stakeholder.
+ 
     # invitation_token = serializers.UUIDField()
     # group_id = serializers.UUIDField()
     # client_id = serializers.UUIDField()
@@ -722,6 +730,7 @@ class StakeholderRegistrationSerializer(serializers.Serializer):
      
         stakeholder.first_name = validated_data['first_name']
         stakeholder.last_name = validated_data['last_name']
+        # stakeholder.client = validated_data['client']
         stakeholder.is_registered = True
         stakeholder.save()
 
@@ -1152,7 +1161,7 @@ class CreateStakeholderSerializer(serializers.Serializer):
     first_name = serializers.CharField(max_length=100, required=False, allow_blank=True)
     last_name = serializers.CharField(max_length=100, required=False, allow_blank=True)
     send_invitation = serializers.BooleanField(default=True)
-    send_login_link = serializers.BooleanField(default=True)  # New field for login link
+    # send_login_link = serializers.BooleanField(default=True)  # New field for login link
 
     def validate_email(self, value):
         group_id = self.context.get('group_id')
@@ -1177,6 +1186,7 @@ class CreateStakeholderSerializer(serializers.Serializer):
 
     def create(self, validated_data):
         group_id = self.context.get('group_id')
+        clientid = self.context.get('clientid')
         request_user = self.context['request'].user
         request = self.context['request']
         
@@ -1192,7 +1202,8 @@ class CreateStakeholderSerializer(serializers.Serializer):
             last_name=validated_data.get('last_name', ''),
             group=group,
             status='approved',  # Auto-approve when created by admin
-            is_registered=True
+            is_registered=True,
+            client=request_user.client,
         )
         
         # Create user account for the stakeholder
@@ -1226,20 +1237,20 @@ class CreateStakeholderSerializer(serializers.Serializer):
         # Create invitation if requested
         stakeholder_invitation = None
         if validated_data.get('send_invitation', True):
-            pass
-            # expires_at = timezone.now() + timedelta(days=7)  # 7 days expiry
-            # stakeholder_invitation = StakeholderInvitation.objects.create(
-            #     stakeholder_group=group,
-            #     email=validated_data['email'],
-            #     sent_by=request_user,
-            #     expires_at=expires_at,
-            #     stakeholder=stakeholder,
-            #     status='sent'
-            # )
+            # pass
+            expires_at = timezone.now() + timedelta(days=7)  # 7 days expiry
+            stakeholder_invitation = StakeholderInvitation.objects.create(
+                stakeholder_group=group,
+                email=validated_data['email'],
+                sent_by=request_user,
+                expires_at=expires_at,
+                stakeholder=stakeholder,
+                status='sent'
+            )
         
         # Create login token and send login link if requested
-        if validated_data.get('send_login_link', True) and LOGIN_TOKEN_AVAILABLE:
-            self.create_and_send_login_token(stakeholder, stakeholder_invitation, request)
+        # if validated_data.get('send_login_link', True) and LOGIN_TOKEN_AVAILABLE:
+        #     self.create_and_send_login_token(stakeholder, stakeholder_invitation, request)
         
         return stakeholder
 

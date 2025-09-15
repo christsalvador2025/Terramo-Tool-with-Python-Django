@@ -1779,80 +1779,29 @@ def _unique_invitation_token():
             return tok
         
 from django.db import transaction, IntegrityError
+import uuid
+import logging
+from django.db import transaction, IntegrityError
+from django.utils import timezone
+
+from rest_framework import status
+from rest_framework.views import APIView
+from rest_framework.response import Response
+from rest_framework.permissions import AllowAny
+from rest_framework.exceptions import ValidationError
+
+from .serializers import EmailSubmissionSerializer
+from .models import Stakeholder, StakeholderInvitation, Client, StakeholderGroup
+
+logger = logging.getLogger(__name__)
+
+
 class SubmitEmailView(APIView):
     """Handle email submission for invitation"""
+
     authentication_classes = []
     permission_classes = [AllowAny]
-    
-    # def post(self, request):
-    #     serializer = EmailSubmissionSerializer(data=request.data)
-    #     if serializer.is_valid():
-    #         email = serializer.validated_data['email']
-    #         stakeholder_group = serializer.validated_data['stakeholder_group']
-    #         existing_stakeholder = serializer.validated_data['existing_stakeholder']
-            
-    #         if existing_stakeholder:
-    #             if existing_stakeholder.is_registered:
-    #                 # Stakeholder exists and is registered - auto login
-    #                 if existing_stakeholder.user:
-    #                     # Update last login
-    #                     existing_stakeholder.last_login = timezone.now()
-    #                     existing_stakeholder.save()
-                        
-    #                     return Response({
-    #                         "action": "auto_login",
-    #                         "message": "Welcome back! You have been logged in automatically.",
-    #                         "stakeholder_id": str(existing_stakeholder.id),
-    #                         "redirect_url": "/stakeholder/dashboard/"
-    #                     }, status=status.HTTP_200_OK)
-    #             else:
-    #                 # Stakeholder exists but not registered - redirect to registration
-    #                 return Response({
-    #                     "action": "complete_registration",
-    #                     "message": "Please complete your registration.",
-    #                     "email": email,
-    #                     "token": str(serializer.validated_data['token']),
-    #                     "redirect_url": "/stakeholder/register/"
-    #                 }, status=status.HTTP_200_OK)
-    #         else:
-    #             # New stakeholder - create and redirect to registration
-    #             stakeholder = Stakeholder.objects.create(
-    #                 email=email,
-    #                 group=stakeholder_group,
-    #                 is_registered=False,
-    #                 status='pending'
-    #             )
-                
-    #             # Create or update stakeholder invitation
-    #             invitation, created = StakeholderInvitation.objects.get_or_create(
-    #                 email=email,
-    #                 stakeholder_group=stakeholder_group,
-    #                 defaults={
-    #                     'invitation_token': serializer.validated_data['token'],
-    #                     'status': 'clicked',
-    #                     'clicked_at': timezone.now(),
-    #                     'expires_at': timezone.now() + timezone.timedelta(days=7),
-    #                     'sent_by': stakeholder_group.created_by,
-    #                     'stakeholder': stakeholder
-    #                 }
-    #             )
-                
-    #             if not created:
-    #                 invitation.status = 'clicked'
-    #                 invitation.clicked_at = timezone.now()
-    #                 invitation.stakeholder = stakeholder
-    #                 invitation.save()
-                
-    #             return Response({
-    #                 "action": "register",
-    #                 "message": "Please complete your registration.",
-    #                 "email": email,
-    #                 # "token": str(serializer.validated_data['token']),
-    #                 "token" : str(stakeholder.id),
-    #                 "redirect_url": "/stakeholder/register/"
-    #             }, status=status.HTTP_201_CREATED)
-        
-    #     return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
     def post(self, request, *args, **kwargs):
         try:
             serializer = EmailSubmissionSerializer(data=request.data)
@@ -1860,80 +1809,90 @@ class SubmitEmailView(APIView):
 
             email = serializer.validated_data["email"]
             group = serializer.validated_data["stakeholder_group"]
+            client_data = serializer.validated_data["client"]
             existing_stakeholder = serializer.validated_data["existing_stakeholder"]
             existing_invitation = serializer.validated_data["existing_invitation"]
 
-            # 1) Stakeholder already exists in this group then redirect then request login.
+            # Scenario 1: Stakeholder already exists
             if existing_stakeholder:
                 if existing_stakeholder.is_registered and existing_stakeholder.user:
                     existing_stakeholder.last_login = timezone.now()
                     existing_stakeholder.save(update_fields=["last_login"])
-                    # will update
                     return Response(
                         {
                             "action": "redirect_to_request_login",
                             "message": "You are already registered as a stakeholder, You are now redirected to request login page. Please wait...",
-                       
                             "redirect_url": "/stakeholder/request-login/",
                         },
                         status=status.HTTP_200_OK,
                     )
-                    # return Response(
-                    #     {
-                    #         "action": "auto_login",
-                    #         "message": "Welcome back! You have been logged in automatically.",
-                    #         "stakeholder_id": str(existing_stakeholder.id),
-                    #         "redirect_url": "/stakeholder/dashboard/",
-                    #     },
-                    #     status=status.HTTP_200_OK,
-                    # )
-                # not registered yet → complete registration
+                if existing_stakeholder.is_registered and existing_stakeholder.status == 'pending':
+                    return Response(
+                        {
+                            "action": "waiting_for_approval",
+                            "message": "This email is waiting for approval.",
+                            "redirect_url": None,
+                        },
+                        status=status.HTTP_200_OK,
+                    )
+                # Not registered yet -> complete registration
                 return Response(
                     {
                         "action": "complete_registration",
                         "message": "Please complete your registration.",
+                        "client": str(client_data.id),
                         "email": email,
-                        "token": str(existing_stakeholder.id),  # you use stakeholder.id at /register
+                        "token": str(existing_stakeholder.id),
                         "redirect_url": "/stakeholder/register/",
                     },
                     status=status.HTTP_200_OK,
                 )
 
-            # 2) Invitation already exists in this group for this email
+            # Scenario 2: Invitation already exists (but no stakeholder)
             if existing_invitation:
                 with transaction.atomic():
-                    # ensure invitation is linked to a stakeholder
-                    if not existing_invitation.stakeholder:
-                        st, _ = Stakeholder.objects.get_or_create(
-                            email=email,
-                            group=group,
-                            defaults={"is_registered": False, "status": "pending"},
-                        )
-                        existing_invitation.stakeholder = st
-                    # mark clicked
+                    stakeholder = existing_invitation.stakeholder
+                    if not stakeholder:
+                        try:
+                            # Try to retrieve existing stakeholder first
+                            stakeholder = Stakeholder.objects.get(
+                                email=email,
+                                group=group,
+                                client=client_data
+                            )
+                        except Stakeholder.DoesNotExist:
+                            # Create new stakeholder if not found
+                            stakeholder = Stakeholder.objects.create(
+                                email=email,
+                                group=group,
+                                client=client_data,
+                                is_registered=False,
+                                status="pending",
+                            )
+
+                        existing_invitation.stakeholder = stakeholder
+                        existing_invitation.save(update_fields=["stakeholder"])
+
                     existing_invitation.status = "clicked"
                     existing_invitation.clicked_at = timezone.now()
-                    existing_invitation.save(update_fields=["stakeholder", "status", "clicked_at"])
+                    existing_invitation.save(update_fields=["status", "clicked_at"])
 
-                st = existing_invitation.stakeholder
-                if st and st.is_registered and st.user:
-                    # st.last_login = timezone.now()
-                    # st.save(update_fields=["last_login"])
-                    # return Response(
-                    #     {
-                    #         "action": "auto_login",
-                    #         "message": "Welcome back! You have been logged in automatically.",
-                    #         "stakeholder_id": str(st.id),
-                    #         "redirect_url": "/stakeholder/dashboard/",
-                    #     },
-                    #     status=status.HTTP_200_OK,
-                    # )
+                if stakeholder and stakeholder.is_registered and stakeholder.user:
                     return Response(
                         {
                             "action": "redirect_to_request_login",
                             "message": "You are already registered as a stakeholder, You are now redirected to request login page. Please wait...",
-                            # "stakeholder_id": str(existing_stakeholder.id),
                             "redirect_url": "/stakeholder/request-login/",
+                        },
+                        status=status.HTTP_200_OK,
+                    )
+
+                if stakeholder and stakeholder.is_registered and stakeholder.status == 'pending':
+                    return Response(
+                        {
+                            "action": "waiting_for_approval",
+                            "message": "This email is waiting for approval.",
+                            "redirect_url": None,
                         },
                         status=status.HTTP_200_OK,
                     )
@@ -1942,42 +1901,56 @@ class SubmitEmailView(APIView):
                         "action": "complete_registration",
                         "message": "Please complete your registration.",
                         "email": email,
-                        "token": str(st.id) if st else "",
+                        "client": str(client_data.id),
+                        "token": str(stakeholder.id) if stakeholder else "",
                         "redirect_url": "/stakeholder/register/",
                     },
                     status=status.HTTP_200_OK,
                 )
 
-            # 3) Nothing exists → create Stakeholder + Invitation
+            # Scenario 3: Neither exists -> create both Stakeholder and Invitation
             with transaction.atomic():
-                stakeholder, _ = Stakeholder.objects.get_or_create(
+                stakeholder = Stakeholder.objects.create(
                     email=email,
                     group=group,
-                    client=group.client,
-                    defaults={"is_registered": False, "status": "pending"},
+                    client=client_data,
+                    is_registered=False,
+                    status="pending",
                 )
 
-                # Create/update invitation (idempotent)
-                StakeholderInvitation.objects.update_or_create(
-                    email=email,
-                    stakeholder_group=group,
-             
-                    defaults={
-                        "invitation_token": uuid.uuid4(), 
-                        "status": "clicked",
-                        "clicked_at": timezone.now(),
-                        "expires_at": timezone.now() + timezone.timedelta(days=7),
-                        "sent_by": group.created_by,
-                        "stakeholder": stakeholder,
-                    },
-                )
+                try:
+                    # Try to retrieve existing invitation
+                    invitation = StakeholderInvitation.objects.get(
+                        email=email, stakeholder_group=group
+                    )
+                    # Update it if found
+                    invitation.invitation_token = uuid.uuid4()
+                    invitation.status = "clicked"
+                    invitation.clicked_at = timezone.now()
+                    invitation.expires_at = timezone.now() + timezone.timedelta(days=7)
+                    invitation.sent_by = group.created_by
+                    invitation.stakeholder = stakeholder
+                    invitation.save()
+                except StakeholderInvitation.DoesNotExist:
+                    # Create a new invitation if not found
+                    StakeholderInvitation.objects.create(
+                        email=email,
+                        stakeholder_group=group,
+                        invitation_token=uuid.uuid4(),
+                        status="clicked",
+                        clicked_at=timezone.now(),
+                        expires_at=timezone.now() + timezone.timedelta(days=7),
+                        sent_by=group.created_by,
+                        stakeholder=stakeholder,
+                    )
 
             return Response(
                 {
                     "action": "register",
                     "message": "Please complete your registration.",
+                    "client": str(client_data.id),
                     "email": email,
-                    "token": str(stakeholder.id),  # used by your /register flow
+                    "token": str(stakeholder.id),
                     "redirect_url": "/stakeholder/register/",
                 },
                 status=status.HTTP_201_CREATED,
@@ -1987,10 +1960,16 @@ class SubmitEmailView(APIView):
             return Response(exc.detail, status=status.HTTP_400_BAD_REQUEST)
         except IntegrityError as ie:
             logger.exception("IntegrityError in EmailSubmitView for %s", request.data.get("email"))
-            return Response({"detail": "Integrity error", "db_error": str(ie)}, status=status.HTTP_409_CONFLICT)
+            return Response(
+                {"detail": "Integrity error", "db_error": str(ie)},
+                status=status.HTTP_409_CONFLICT,
+            )
         except Exception:
             logger.exception("Unhandled error in EmailSubmitView")
-            return Response({"detail": "Unexpected server error"}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+            return Response(
+                {"detail": "Unexpected server error"},
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            )
 
 # class StakeholderRegistrationView(APIView):
 #     """Handle stakeholder registration"""
@@ -2022,6 +2001,7 @@ class StakeholderRegistrationView(APIView):
         if serializer.is_valid():
             token = serializer.validated_data['token']
             email = serializer.validated_data['email']
+             
             stakeholder = Stakeholder.objects.filter(
                 id=token,
                 is_registered=False,
@@ -2874,11 +2854,17 @@ class CreateStakeholderView(generics.CreateAPIView):
     
     def perform_create(self, serializer):
         group_id = self.kwargs.get('group_id')
+        print(f"--- groupid ---{group_id}")
         group = get_object_or_404(StakeholderGroup, id=group_id)
         
+   
         # Verify user has access to this group
-        if self.request.user.role != 'terramo_admin' and group.client != self.request.user.client:
-            raise PermissionError("You don't have permission to create stakeholders in this group.")
+        if group:
+            if group.is_global:
+                pass
+            else:
+                if self.request.user.role != 'terramo_admin' and group.client != self.request.user.client:
+                    raise PermissionError("You don't have permission to create stakeholders in this group.")
         
 
         # -------------- login token start --------------
@@ -2901,20 +2887,17 @@ class CreateStakeholderView(generics.CreateAPIView):
         
         if invitation:
             invitation_url = invitation.get_invitation_url()
-            subject = f"Invitation to join {stakeholder.group.client.company_name}"
+            subject = f"Invitation to join {self.request.user.client.company_name}"
             message = f"""
             Hi {stakeholder.first_name or 'there'},
             
             You have been invited to join the stakeholder group '{stakeholder.group.name}' 
-            for {stakeholder.group.client.company_name}.
+            for {self.request.user.client.company_name}.
             
-            Click the link below to complete your registration:
-            {invitation_url}
-            
-            This invitation will expire in 7 days.
-            
+            You can request login token here in : http://localhost:5173/stakeholder/request-login/
+
             Best regards,
-            {stakeholder.group.client.company_name} Team
+            {self.request.user.client.company_name} Team
             """
             
             send_mail(
@@ -2934,9 +2917,12 @@ class RemoveStakeholderView(generics.DestroyAPIView):
         stakeholder = get_object_or_404(Stakeholder, id=stakeholder_id)
         
         # Verify user has access to this stakeholder
-        if (self.request.user.role != 'terramo_admin' and 
-            stakeholder.group.client != self.request.user.client):
-            raise PermissionError("You don't have permission to remove this stakeholder.")
+        if stakeholder.group.is_global:
+            pass
+        else:
+            if (self.request.user.role != 'terramo_admin' and 
+                stakeholder.group.client != self.request.user.client):
+                raise PermissionError("You don't have permission to remove this stakeholder.")
         
         return stakeholder
     
@@ -2961,14 +2947,17 @@ class StakeholderGroupListView(generics.ListAPIView):
     """List stakeholder groups for the current user's client"""
     serializer_class = UpdatedStakeholderGroupSerializer
     permission_classes = [IsAuthenticated, IsClientAdminOrTerramoAdmin]
-    
+    # pagination_class = None
+
     def get_queryset(self):
         if self.request.user.role == 'terramo_admin':
             return StakeholderGroup.objects.all().order_by('name')
         else:
             return StakeholderGroup.objects.filter(
-                client=self.request.user.client,
-                is_active=True
+                # client=self.request.user.client,
+                is_active=True,
+                is_global=True,
+                name='Kernteam'
             ).order_by('name')
 
 
@@ -2998,11 +2987,14 @@ class UpdatedStakeholderListView(generics.ListAPIView):
         group = get_object_or_404(StakeholderGroup, id=group_id)
         
         # Verify user has access to this group
-        if (self.request.user.role != 'terramo_admin' and 
-            group.client != self.request.user.client):
-            return Stakeholder.objects.none()
+        if group.is_global:
+            pass
+        else:
+            if (self.request.user.role != 'terramo_admin' and 
+                group.client != self.request.user.client):
+                return Stakeholder.objects.none()
         
-        return Stakeholder.objects.filter(group=group, status='approved').select_related('group', 'user').order_by('created_at')
+        return Stakeholder.objects.filter(group=group, client=self.request.user.client, status='approved').select_related('group', 'user').order_by('created_at')
     
 
 
@@ -3089,7 +3081,7 @@ class StakeholderApprovalViewSet(ViewSet):
 
         # Base queryset
         queryset = Stakeholder.objects.filter(
-            group__client=client
+            client=client
         ).select_related('group', 'user').order_by('-created_at')
 
         # Apply filters
@@ -3108,7 +3100,7 @@ class StakeholderApprovalViewSet(ViewSet):
             )
 
         # Get statistics
-        all_stakeholders = Stakeholder.objects.filter(group__client=client)
+        all_stakeholders = Stakeholder.objects.filter(client=client)
         stats = {
             'total': all_stakeholders.count(),
             'pending': all_stakeholders.filter(status='pending').count(),
@@ -3117,6 +3109,27 @@ class StakeholderApprovalViewSet(ViewSet):
         }
 
         # Get groups for filtering
+        stakeholder_groups = StakeholderGroup.objects.filter(
+            client=client,
+            is_active=True,
+            disable_the_invitation=False,
+        ).annotate(
+            stakeholder_count=Count('stakeholders')
+        ).order_by('name')
+
+        # get global stakeholder groups and append later to the client data
+        global_stakeholder_groups = StakeholderGroup.objects.filter(
+            client=None,
+            is_active=True,
+            is_global=True,
+            disable_the_invitation=False,
+        ).annotate(
+            stakeholder_count=Count('stakeholders')
+        ).order_by('name')
+
+        # combine the global stakeholders
+        combine_stakeholder_groups = stakeholder_groups.union(global_stakeholder_groups)
+
         groups = StakeholderGroup.objects.filter(
             client=client,
             is_active=True
@@ -3126,7 +3139,7 @@ class StakeholderApprovalViewSet(ViewSet):
 
         # Serialize data
         stakeholders_data = PendingStakeholderSerializer(queryset, many=True).data
-        groups_data = StakeholderGroupSimpleSerializer(groups, many=True).data
+        groups_data = StakeholderGroupSimpleSerializer(combine_stakeholder_groups, many=True).data
 
         return Response({
             'stakeholders': stakeholders_data,
@@ -3155,7 +3168,8 @@ class StakeholderApprovalViewSet(ViewSet):
         stakeholder = get_object_or_404(
             Stakeholder, 
             id=stakeholder_id, 
-            group__client=client
+            # group__client=client
+            client=client
         )
 
         if stakeholder.status == 'approved':
@@ -3273,7 +3287,7 @@ class StakeholderApprovalViewSet(ViewSet):
         stakeholder = get_object_or_404(
             Stakeholder, 
             id=stakeholder_id, 
-            group__client=client
+            client=client
         )
 
         if stakeholder.status == 'rejected':
@@ -3330,12 +3344,12 @@ class StakeholderApprovalViewSet(ViewSet):
 
     def _send_approval_notification(self, stakeholder, reason=''):
         """Send approval notification email"""
-        subject = f'Your stakeholder request has been approved - {stakeholder.group.client.company_name}'
+        subject = f'Your stakeholder request has been approved - {stakeholder.client.company_name}'
         
         message = f"""
         Dear {stakeholder.first_name or 'Stakeholder'},
         
-        Your request to join the stakeholder group "{stakeholder.group.name}" for {stakeholder.group.client.company_name} has been approved.
+        Your request to join the stakeholder group "{stakeholder.group.name}" for {stakeholder.client.company_name} has been approved.
         
         You can request login token here in : http://localhost:5173/stakeholder/request-login/
         
@@ -3358,12 +3372,12 @@ class StakeholderApprovalViewSet(ViewSet):
 
     def _send_rejection_notification(self, stakeholder, reason=''):
         """Send rejection notification email"""
-        subject = f'Update on your stakeholder request - {stakeholder.group.client.company_name}'
+        subject = f'Update on your stakeholder request - {stakeholder.client.company_name}'
         
         message = f"""
         Dear {stakeholder.first_name or 'Stakeholder'},
         
-        Thank you for your interest in participating in the ESG questionnaire for {stakeholder.group.client.company_name}.
+        Thank you for your interest in participating in the ESG questionnaire for {stakeholder.client.company_name}.
         
         Unfortunately, we are unable to approve your request at this time.
         

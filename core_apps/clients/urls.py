@@ -2,7 +2,8 @@ from django.contrib import admin
 from django.urls import path, include
 from rest_framework.routers import DefaultRouter
 
-from .views import InvitationAcceptView, ClientViewSet, GetInvitationFormView, ClientViewDataSet, InvitationAcceptDataView, ClientAdminAcceptInvitationView, ClientAdminLogoutView, ClientAdminCustomLogoutView, ClientAdminVerifyInvitationtokenView, ClientAdminLoginTokenView, ClientAdminRequestLoginView, ClientAdminTokenLoginView,ClientAdminAcceptInvitationViewOld
+from .views import InvitationAcceptView, ClientViewSet, GetInvitationFormView, ClientViewDataSet, InvitationAcceptDataView, ClientAdminAcceptInvitationView, ClientAdminLogoutView, ClientAdminCustomLogoutView, ClientAdminVerifyInvitationtokenView, ClientAdminLoginTokenView, ClientAdminRequestLoginView, ClientAdminTokenLoginView
+# ClientAdminAcceptInvitationViewOld
 router = DefaultRouter()
 app_name = 'clients'
  

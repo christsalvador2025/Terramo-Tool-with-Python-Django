@@ -1916,7 +1916,7 @@ class ESGDashboardViewSet(viewsets.ViewSet):
             return Response({'error': 'User is not associated with a client'}, 
                             status=status.HTTP_403_FORBIDDEN)
 
-        client = stakeholder.group.client
+        client = stakeholder.client
         # Get current year
         current_year = ESGYear.get_current_year()
         if not current_year:
@@ -2587,7 +2587,7 @@ class ESGDashboardViewSet(viewsets.ViewSet):
             is_active=True,
             disable_the_invitation=False,
         ).annotate(
-            stakeholder_count=Count('stakeholders', filter=Q(stakeholders__status='approved'))
+            stakeholder_count=Count('stakeholders', filter=Q(stakeholders__status='approved', stakeholders__client=client))
         ).order_by('name')
 
         # get global stakeholder groups and append later to the client data
@@ -2597,7 +2597,7 @@ class ESGDashboardViewSet(viewsets.ViewSet):
             is_global=True,
             disable_the_invitation=False,
         ).annotate(
-            stakeholder_count=Count('stakeholders', filter=Q(stakeholders__status='approved'))
+            stakeholder_count=Count('stakeholders', filter=Q(stakeholders__status='approved', stakeholders__client=client))
         ).order_by('name')
 
         # combine the global stakeholders
@@ -3252,6 +3252,7 @@ class ESGDashboardViewSet(viewsets.ViewSet):
                 stakeholder = Stakeholder.objects.create(
                     group=group,
                     email=email,
+                    client=client,
                     first_name=first_name,
                     last_name=last_name,
                     status='approved',  # Default status
@@ -3354,17 +3355,29 @@ class ESGDashboardViewSet(viewsets.ViewSet):
                             status=status.HTTP_403_FORBIDDEN)
         # Get the stakeholder group
         try:
-            group = StakeholderGroup.objects.get(id=group_id, client=client, is_active=True,disable_the_invitation=False)
+            group = StakeholderGroup.objects.get(id=group_id, is_active=True,disable_the_invitation=False)
+            print(f"---------group-----",group)
         except StakeholderGroup.DoesNotExist:
             return Response({'error': 'Stakeholder group not found'}, 
                             status=status.HTTP_404_NOT_FOUND)
 
         # Get stakeholders in this group
+        # if group.is_global:
+        #     stakeholders = Stakeholder.objects.filter(
+        #         group=group,
+        #         status='approved',
+        #         client=client,
+        #     ).select_related('user').order_by('first_name', 'last_name', 'email')
+        # else:
+        print(f"---------id-----",group_id)
         stakeholders = Stakeholder.objects.filter(
-            group=group,
+            group__id=group_id,
             status='approved',
+            client=client,
+            group__disable_the_invitation=False
         ).select_related('user').order_by('first_name', 'last_name', 'email')
 
+        print(f"stakeholders groups: {stakeholders.count()}")
         stakeholders_data = []
         for stakeholder in stakeholders:
             stakeholders_data.append({
@@ -3401,7 +3414,7 @@ class ESGDashboardViewSet(viewsets.ViewSet):
         try:
             stakeholder = Stakeholder.objects.get(
                 id=stakeholder_id, 
-                group__client=client
+                client=client
             )
             
             # Instead of deleting, mark as inactive or actually delete based on your business logic

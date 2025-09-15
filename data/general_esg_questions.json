@@ -1,0 +1,211 @@
+[
+  {
+    "category_name": "Environment",
+    "measure": "Beitrag zum Klimaschutz leisten",
+    "index_code": "E-1",
+    "description": "",
+    "order": 1,
+    "is_active": true
+  },
+  {
+    "category_name": "Environment",
+    "measure": "Anpassung an den Klimawandel: Szenario-Analysen und Notfallpläne entwickeln",
+    "index_code": "E-2",
+    "description": "",
+    "order": 2,
+    "is_active": true
+  },
+  {
+    "category_name": "Environment",
+    "measure": "Energie sparen bzw. effizient nutzen",
+    "index_code": "E-3",
+    "description": "",
+    "order": 3,
+    "is_active": true
+  },
+  {
+    "category_name": "Environment",
+    "measure": "",
+    "index_code": "E-4",
+    "description": "Emissionen aus fossilen Brenn- und Treibstoffen reduzieren",
+    "order": 4,
+    "is_active": true
+  },
+  {
+    "category_name": "Environment",
+    "measure": "Verschmutzung von Boden, Luft, Wasser reduzieren",
+    "index_code": "E-5",
+    "description": "",
+    "order": 5,
+    "is_active": true
+  },
+  {
+    "category_name": "Environment",
+    "measure": "Verschmutzung von Boden, Luft, Wasser reduzieren",
+    "index_code": "E-6",
+    "description": "",
+    "order": 6,
+    "is_active": true
+  },
+  {
+    "category_name": "Environment",
+    "measure": "Wasserverbrauch reduzieren, Wassernutzung optimieren",
+    "index_code": "E-7",
+    "description": "",
+    "order": 7,
+    "is_active": true
+  },
+  {
+    "category_name": "Environment",
+    "measure": "Grundsätze der Kreislaufwirtschaft integrieren",
+    "index_code": "E-8",
+    "description": "",
+    "order": 8,
+    "is_active": true
+  },
+  {
+    "category_name": "Environment",
+    "measure": "Verantwortungsvoller Umgang mit Ressourcen fördern",
+    "index_code": "E-9",
+    "description": "",
+    "order": 9,
+    "is_active": true
+  },
+  {
+    "category_name": "Environment",
+    "measure": "Abfälle und Sonderabfälle reduzieren",
+    "index_code": "E-10",
+    "description": "",
+    "order": 10,
+    "is_active": true
+  },
+  {
+    "category_name": "Environment",
+    "measure": "Innovation fördern, die eine positive Veränderung auf Mensch und Umwelt bewirken",
+    "index_code": "E-11",
+    "description": "",
+    "order": 11,
+    "is_active": true
+  },
+  {
+    "category_name": "Social",
+    "measure": "Ein sicheres und gesundes Arbeitsumfeld schaffen",
+    "index_code": "S-1",
+    "description": "",
+    "order": 1,
+    "is_active": true
+  },
+  {
+    "category_name": "Social",
+    "measure": "Gleichstellung im Unternehmen fördern",
+    "index_code": "S-2",
+    "description": "",
+    "order": 2,
+    "is_active": true
+  },
+  {
+    "category_name": "Social",
+    "measure": "Energie sparen bzw. effizient nutzen",
+    "index_code": "S-3",
+    "description": "",
+    "order": 3,
+    "is_active": true
+  },
+  {
+    "category_name": "Social",
+    "measure": "Vereinbarkeit von Familie und Beruf unterstützen",
+    "index_code": "S-4",
+    "description": "",
+    "order": 4,
+    "is_active": true
+  },
+  {
+    "category_name": "Social",
+    "measure": "Aus- und Weiterbildung sowie Kompetenzentwicklung fördern",
+    "index_code": "S-5",
+    "description": "",
+    "order": 5,
+    "is_active": true
+  },
+  {
+    "category_name": "Social",
+    "measure": "Sicherheit und Qualität der eigenen Produkte gewährleisten",
+    "index_code": "S-6",
+    "description": "",
+    "order": 6,
+    "is_active": true
+  },
+  {
+    "category_name": "Social",
+    "measure": "In einen Dialog mit den Stakeholdern treten",
+    "index_code": "S-7",
+    "description": "",
+    "order": 7,
+    "is_active": true
+  },
+  {
+    "category_name": "Social",
+    "measure": "Arbeitsbezogene Rechte in der gesamten Wertschöpfungskette miteinbeziehen (z. B. Kinderarbeit, Menschenrechte)",
+    "index_code": "S-8",
+    "description": "",
+    "order": 8,
+    "is_active": true
+  },
+  {
+    "category_name": "Social",
+    "measure": "Arbeitsbedingungen entlang der Wertschöpfungskette analysieren und verbessern",
+    "index_code": "S-9",
+    "description": "",
+    "order": 9,
+    "is_active": true
+  },
+  {
+    "category_name": "Corporate Governance",
+    "measure": "Klare Unternehmensstruktur etablieren (Stv.-Regelungen, Trennung CEO / VRP etc.)",
+    "index_code": "G-1",
+    "description": "",
+    "order": 1,
+    "is_active": true
+  },
+  {
+    "category_name": "Corporate Governance",
+    "measure": "Korruptionsrichtlinie erstellen",
+    "index_code": "G-2",
+    "description": "",
+    "order": 2,
+    "is_active": true
+  },
+  {
+    "category_name": "Corporate Governance",
+    "measure": "Verhaltenskodex für Lieferanten erstellen",
+    "index_code": "G-3",
+    "description": "",
+    "order": 3,
+    "is_active": true
+  },
+  {
+    "category_name": "Corporate Governance",
+    "measure": "Unternehmensrichtlinien an internationalen Instrumenten (z. B. UN-Leitprinzipien) orientieren",
+    "index_code": "G-4",
+    "description": "",
+    "order": 4,
+    "is_active": true
+  },
+  {
+    "category_name": "Corporate Governance",
+    "measure": "Risiko- und Chancenmanagement betreiben",
+    "index_code": "G-5",
+    "description": "",
+    "order": 5,
+    "is_active": true
+  },
+  {
+    "category_name": "Corporate Governance",
+    "measure": "ESG-Berichterstattung einführen und offen gegenüber den Stakeholdern kommunizieren",
+    "index_code": "G-6",
+    "description": "",
+    "order": 6,
+    "is_active": true
+  }
+  
+]
