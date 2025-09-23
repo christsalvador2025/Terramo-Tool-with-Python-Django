@@ -97,7 +97,7 @@ class StakeholderGroupAdmin(admin.ModelAdmin):
 
 @admin.register(Stakeholder)
 class StakeholderAdmin(admin.ModelAdmin):
-    list_display = ('id','email', 'group', 'is_registered', 'created_at', 'last_login')
+    list_display = ('id','email', 'group','client', 'is_registered', 'created_at', 'last_login')
     list_filter = ('is_registered', 'created_at', 'group__client')
     search_fields = ('email', 'first_name', 'last_name', 'group__name')
 

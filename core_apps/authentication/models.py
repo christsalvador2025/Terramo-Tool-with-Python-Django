@@ -1001,14 +1001,14 @@ class StakeholderLoginToken(models.Model):
     )
     
     stakeholder = models.ForeignKey(
-        'Stakeholder',
+        Stakeholder,
         on_delete=models.CASCADE,
         related_name='login_tokens',
         verbose_name=_('Stakeholder')
     )
     
     stakeholder_invitation = models.ForeignKey(
-        'StakeholderInvitation',
+        StakeholderInvitation,
         on_delete=models.CASCADE,
         related_name='login_tokens',
         null=True,
@@ -1098,7 +1098,7 @@ class StakeholderLoginToken(models.Model):
 
     @classmethod
     def get_valid_token(cls, token_uuid):
-        """Get a valid token by UUID"""
+        """Get a valid token by UUID --- validating"""
         try:
             token = cls.objects.select_related('stakeholder', 'stakeholder_invitation').get(
                 token=token_uuid,

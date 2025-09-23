@@ -15,7 +15,7 @@ def get_client_ip(request):
 
 def generate_client_admin_token(user, request, invitation=None):
     """Generate and return a ClientAdmin login token + metadata."""
-    print(f"user==={user}")
+    
     # Invalidate previous unused tokens
     ClientAdminLoginToken.objects.filter(user=user, is_used=False).update(
         is_used=True, used_at=timezone.now()
@@ -34,7 +34,6 @@ def generate_client_admin_token(user, request, invitation=None):
 
     logger.info(f"Generated client_admin login token for {user.email}: {login_token.token}")
     
-
     # Send email
     EmailService.send_login_token_email(user, login_url, role_display)
 

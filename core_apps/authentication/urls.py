@@ -95,6 +95,7 @@ urlpatterns = [
     path('update-login-status/', StakeholderLoginStatusView.as_view(), name='update_login_status'),
 
     # updated authentication for stakeholders
+    # **
     path('stakeholder/request-login/', StakeholderLoginRequestView.as_view(), name='stakeholder-request-login'),
      path('stakeholder/approve-status/<uuid:stakeholder_id>/', StakeholderApprovalView.as_view(), name='approve_stakeholder'),
     path('stakeholder/login-user/<str:token>/', StakeholderUserTokenLoginView.as_view(), name='stakeholder-token-login'),
@@ -103,6 +104,7 @@ urlpatterns = [
     path('groups/<uuid:group_id>/stakeholders/', 
          UpdatedStakeholderListView.as_view(), 
          name='stakeholder-list'),
+     # create
     path('groups/<uuid:group_id>/stakeholders/create/', 
          CreateStakeholderView.as_view(), name='create-stakeholder'),
 
@@ -116,7 +118,12 @@ urlpatterns = [
 
      # -------------------------- START: stakeholders approval, pending, and reject --------------
      
-     # Stakeholder approval endpoints
+     # Stakeholder approval endpoints | client_lists_stakeholders
+     path(
+          'stakeholders/lists/', 
+          StakeholderApprovalViewSet.as_view({'get': 'client_lists_stakeholders'}), 
+          name='client-lists-stakeholders'
+     ),
      path(
           'stakeholders/pending/', 
           StakeholderApprovalViewSet.as_view({'get': 'list_pending_stakeholders'}), 

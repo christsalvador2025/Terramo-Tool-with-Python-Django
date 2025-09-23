@@ -19,7 +19,8 @@ from .serializers import (
    
     StakeholderGroupSerializer, StakeholderCreateSerializer,
     StakeholderRegistrationSerializer, EmailLoginSerializer,
-    StakeholderDetailSerializer, CreateStakeholderSerializer
+    StakeholderDetailSerializer, CreateStakeholderSerializer,
+    AllStakeholderSerializer
 )
 from .permissions import IsTerramoAdmin, IsClientAdmin, IsStakeholder
 from .utils import generate_invitation_email, generate_login_email, set_auth_cookies
@@ -30,6 +31,20 @@ from core_apps.clients.tasks import create_esg_responses_for_user
 
 logger = logging.getLogger(__name__)
 
+
+"""
+Table of contents for code navigations:
+Descriptions: For Stakeholders, Authentications and Groups.
+
+[1] TerramoAdminLoginView
+    - login view for terramo admin users
+[2] ClientAdminInvitationAcceptView
+    - client admin accept and verify invitation
+[3]
+
+"""
+
+# [1] TerramoAdminLoginView
 class TerramoAdminLoginView(APIView):
     """Login view for Terramo Admin (actual Django users)"""
     permission_classes = [permissions.AllowAny]
@@ -85,65 +100,7 @@ class TerramoAdminLoginView(APIView):
         
         return response
 
-# class ClientCreateView(generics.CreateAPIView):
-#     """Create client and client admin by Terramo Admin"""
-#     serializer_class = ClientCreateSerializer
-#     permission_classes = [IsTerramoAdmin]
-    
-#     @transaction.atomic
-#     def perform_create(self, serializer):
-#         # Create client
-#         client = serializer.save(created_by=self.request.user)
-        
-#         # Create client admin
-#         client_admin = ClientAdmin.objects.create(
-#             client=client,
-#             email=client.email,
-#             first_name=client.first_name,
-#             last_name=client.last_name
-#         )
-        
-#         # Create default "Management" stakeholder group
-#         StakeholderGroup.objects.create(
-#             name="Management",
-#             client=client,
-#             created_by=client_admin
-#         )
-        
-#         # Generate invitation token for client admin
-#         invitation_token = InvitationToken.objects.create(
-#             token_type='client_admin_invite',
-#             client_admin=client_admin,
-#             email=client_admin.email
-#         )
-        
-#         # Send invitation email
-#         self.send_invitation_email(client_admin, invitation_token)
-        
-#         return client
-    
-#     def send_invitation_email(self, client_admin, invitation_token):
-#         """Send invitation email to client admin"""
-#         subject = f"Invitation to Terramo System - {client_admin.client.company_name}"
-#         invitation_link = f"{settings.DOMAIN}/api/v1/authentication/client-admin/accept-invitation/{invitation_token.token}"
-        
-#         message = generate_invitation_email(
-#             client_admin.first_name,
-#             client_admin.client.company_name,
-#             invitation_link
-#         )
-        
-#         try:
-#             send_mail(
-#                 subject=subject,
-#                 message=message,
-#                 from_email=settings.DEFAULT_FROM_EMAIL,
-#                 recipient_list=[client_admin.email],
-#                 fail_silently=False,
-#             )
-#         except Exception as e:
-#             logger.error(f"Failed to send invitation email to {client_admin.email}: {e}")
-
+# [2] ClientAdminInvitationAcceptView
 class ClientAdminInvitationAcceptView(APIView):
     """Accept client admin invitation"""
     permission_classes = [permissions.AllowAny]
@@ -179,148 +136,6 @@ class ClientAdminInvitationAcceptView(APIView):
                 status=status.HTTP_400_BAD_REQUEST
             )
 
-# class ClientAcceptInviteVerifiedLogin(APIView):
-#     """FINAL: Client Accepted the Invite, verified email and log them in"""
-#     permission_classes = [permissions.AllowAny]
-    
-#     def post(self, request):
-#         serializer = EmailLoginSerializer(data=request.data)
-        
-#         if not serializer.is_valid():
-#             return Response(
-#                 {'error': 'Invalid input', 'details': serializer.errors}, 
-#                 status=status.HTTP_400_BAD_REQUEST
-#             )
-        
-#         email = serializer.validated_data['email']
-        
-#         try:
-#             client_admin = ClientAdmin.objects.get(email=email, is_active=True)
-
-#         except ClientAdmin.DoesNotExist:
-#             return Response(
-#                 {'error': 'Client admin not found or inactive'}, 
-#                 status=status.HTTP_404_NOT_FOUND
-#             )
-        
-#         # Check if there's a valid existing invitation
-#         accepted_invitation = ClientInvitation.objects.filter(
-#             email=email,
-#             token_type='client_admin_invite',
-#             is_used=True
-#         ).first()
-        
-#         if not accepted_invitation:
-#             return Response(
-#                 {'error': 'No valid invitation found. Please contact Terramo admin.'}, 
-#                 status=status.HTTP_403_FORBIDDEN
-#             )
-        
-#         # Generate login token
-#         login_token = InvitationToken.objects.create(
-#             token_type='login_token',
-#             client_admin=client_admin,
-#             email=email
-#         )
-        
-#         # Send login email
-#         self.send_login_email(client_admin, login_token)
-        
-#         return Response({
-#             'message': 'Login email sent. Please check your email and click the login link.'
-#         })
-    
-#     def send_login_email(self, client_admin, login_token):
-#         """Send login email to client admin"""
-#         subject = "Login to Terramo System"
-#         login_link = f"{settings.DOMAIN}/api/v1/authentication/client-admin/login/{login_token.token}"
-        
-#         message = generate_login_email(
-#             client_admin.first_name,
-#             login_link
-#         )
-        
-#         try:
-#             send_mail(
-#                 subject=subject,
-#                 message=message,
-#                 from_email=settings.DEFAULT_FROM_EMAIL,
-#                 recipient_list=[client_admin.email],
-#                 fail_silently=False,
-#             )
-#         except Exception as e:
-#             logger.error(f"Failed to send login email to {client_admin.email}: {e}")
-
-# class ClientAdminLoginView(APIView):
-#     """Login view for Client Admin (email only)"""
-#     permission_classes = [permissions.AllowAny]
-    
-#     def post(self, request):
-#         serializer = EmailLoginSerializer(data=request.data)
-        
-#         if not serializer.is_valid():
-#             return Response(
-#                 {'error': 'Invalid input', 'details': serializer.errors}, 
-#                 status=status.HTTP_400_BAD_REQUEST
-#             )
-        
-#         email = serializer.validated_data['email']
-        
-#         try:
-#             client_admin = ClientAdmin.objects.get(email=email, is_active=True)
-#         except ClientAdmin.DoesNotExist:
-#             return Response(
-#                 {'error': 'Client admin not found or inactive'}, 
-#                 status=status.HTTP_404_NOT_FOUND
-#             )
-        
-#         # Check if there's a valid existing invitation
-#         existing_invitation = InvitationToken.objects.filter(
-#             email=email,
-#             token_type='client_admin_invite',
-#             is_used=True
-#         ).first()
-        
-#         if not existing_invitation:
-#             return Response(
-#                 {'error': 'No valid invitation found. Please contact Terramo admin.'}, 
-#                 status=status.HTTP_403_FORBIDDEN
-#             )
-        
-#         # Generate login token
-#         login_token = InvitationToken.objects.create(
-#             token_type='login_token',
-#             client_admin=client_admin,
-#             email=email
-#         )
-        
-#         # Send login email
-#         self.send_login_email(client_admin, login_token)
-        
-#         return Response({
-#             'message': 'Login email sent. Please check your email and click the login link.'
-#         })
-    
-#     def send_login_email(self, client_admin, login_token):
-#         """Send login email to client admin"""
-#         subject = "Login to Terramo System"
-#         login_link = f"{settings.DOMAIN}/api/v1/authentication/client-admin/login/{login_token.token}"
-        
-#         message = generate_login_email(
-#             client_admin.first_name,
-#             login_link
-#         )
-        
-#         try:
-#             send_mail(
-#                 subject=subject,
-#                 message=message,
-#                 from_email=settings.DEFAULT_FROM_EMAIL,
-#                 recipient_list=[client_admin.email],
-#                 fail_silently=False,
-#             )
-#         except Exception as e:
-#             logger.error(f"Failed to send login email to {client_admin.email}: {e}")
 
 class ClientAdminTokenLoginView(APIView):
     """Token-based login for client admin"""
@@ -2681,30 +2496,64 @@ class StakeholderUserTokenLoginView(APIView):
         """Verify token and log in stakeholder"""
         try:
             logger.info(f"Token login attempt: {token}")
-            
-            # Get the token
+            print(f"token stakeholder = {token} -")
+            # Get the token .get(
+            #     token=token_uuid, [99]
+            #     is_used=False,
+            #     expires_at__gt=timezone.now()
+            # )
             login_token = StakeholderLoginToken.get_valid_token(token)
+           
             
-            if not login_token:
-                logger.warning(f"Invalid or expired token: {token}")
+            try:
+                stakeholderLoginToken = StakeholderLoginToken.objects.get(
+                    token=token,
+                    is_used=False,
+                    expires_at__gt=timezone.now()
+                )
+                
+                if not stakeholderLoginToken:
+                    return Response({
+                        "error": "Invalid or expired login link. Please request a new login link.",
+                        "status": "invalid_token"
+                    }, status=status.HTTP_400_BAD_REQUEST)
+                
+                if(stakeholderLoginToken):
+                    if(stakeholderLoginToken.is_expired()):
+                        return Response({
+                            "error": "Invalid or expired login link. Please request a new login link.",
+                            "status": "invalid_token"
+                        }, status=status.HTTP_400_BAD_REQUEST)
+            
+            except Exception as e:
                 return Response({
                     "error": "Invalid or expired login link. Please request a new login link.",
                     "status": "invalid_token"
                 }, status=status.HTTP_400_BAD_REQUEST)
+               
             
-            stakeholder = login_token.stakeholder
+            # print(f"login_token stakeholder = {login_token} -")
+            # if not login_token:
+            #     logger.warning(f"Invalid or expired token: {token}")
+            #     print(f"not login token: {token}")
+            #     return Response({
+            #         "error": "Invalid or expired login link. Please request a new login link.",
+            #         "status": "invalid_token"
+            #     }, status=status.HTTP_400_BAD_REQUEST)
+            
+            stakeholder = stakeholderLoginToken.stakeholder
             
             # Check if stakeholder is still active and approved
             if stakeholder.status != 'approved' or not stakeholder.is_registered:
                 logger.warning(f"Stakeholder status invalid: {stakeholder.email}")
-                login_token.mark_as_used()
+                stakeholderLoginToken.mark_as_used()
                 return Response({
                     "error": "Your account status has changed. Please contact your administrator.",
                     "status": "account_status_changed"
                 }, status=status.HTTP_403_FORBIDDEN)
             
             # Mark token as used
-            login_token.mark_as_used(
+            stakeholderLoginToken.mark_as_used(
                 ip_address=self.get_client_ip(request),
                 user_agent=request.META.get('HTTP_USER_AGENT', '')[:500]
             )
@@ -3061,8 +2910,109 @@ class StakeholderApprovalViewSet(ViewSet):
             return Stakeholder.objects.none()
 
     @action(detail=False, methods=['get'])
+    def client_lists_stakeholders(self, request):
+        """Get all Stakeholders in any status"""
+        """
+        format:
+        {
+            stakeholders: [
+                {
+                    "id": "ed3b61ca-d409-4f3c-baca-2af18dcf066e",
+                    "email": "stake6@gmail.com",
+                    "first_name": "stake6",
+                    "last_name": "satke6",
+                    "full_name": "stake6 satke6",
+                    "group": {
+                        "id": "9c5f8516-615b-452f-b5f7-cbeccbc5f0c4",
+                        "name": "Kernteam"
+                    },
+                    "status": "approved",
+                    "status_display": "Approved",
+                    "created_at": "2025-09-19T01:59:18.615238Z",
+                    "days_since_created": 0,
+                    "is_registered": true,
+                    "last_login": "2025-09-19T03:22:28.462725Z"
+                },
+            ]
+        }
+
+        goal: Add all of the stakeholders at once then, to prevent too many request in the server.
+        """
+        user = request.user
+
+        try:
+            client = user.client
+        except AttributeError:
+            return Response(
+                {'error': 'User is not associated with a client'}, 
+                status=status.HTTP_403_FORBIDDEN
+            )
+        # Get filter parameters
+        status_filter = request.query_params.get('status', 'all')  # all, pending, approved, rejected
+        group_filter = request.query_params.get('group', None)
+        search = request.query_params.get('search', None)
+
+        # Base queryset
+        queryset = Stakeholder.objects.filter(
+            client=client
+        ).select_related('group', 'user').order_by('-created_at')
+
+        
+
+        # Get statistics
+        # all_stakeholders = Stakeholder.objects.filter(client=client)
+        all_stakeholders = Stakeholder.objects.filter(
+            client=client
+        ).select_related('group', 'user').order_by('-created_at')
+       
+
+        # Get groups for filtering
+        stakeholder_groups = StakeholderGroup.objects.filter(
+            client=client,
+            is_active=True,
+            disable_the_invitation=False,
+        ).annotate(
+            stakeholder_count=Count('stakeholders')
+        ).order_by('name')
+
+        # get global stakeholder groups and append later to the client data
+        global_stakeholder_groups = StakeholderGroup.objects.filter(
+            client=None,
+            is_active=True,
+            is_global=True,
+            disable_the_invitation=False,
+        ).annotate(
+            stakeholder_count=Count('stakeholders')
+        ).order_by('name')
+
+        # combine the global stakeholders
+        combine_stakeholder_groups = stakeholder_groups.union(global_stakeholder_groups)
+
+        groups = StakeholderGroup.objects.filter(
+            client=client,
+            is_active=True
+        ).annotate(
+            stakeholder_count=Count('stakeholders')
+        ).order_by('name')
+
+        # Serialize data
+        # stakeholders_data = PendingStakeholderSerializer(queryset, many=True).data
+        stakeholders_data = AllStakeholderSerializer(all_stakeholders, many=True).data
+        groups_data = StakeholderGroupSimpleSerializer(combine_stakeholder_groups, many=True).data
+        
+        return Response({
+            'stakeholders': stakeholders_data,
+            'client': {
+                'id': str(client.id),
+                'name': client.company_name
+            }
+        })
+
+    
+    @action(detail=False, methods=['get'])
     def list_pending_stakeholders(self, request):
         """List all stakeholders for client admin approval"""
+        
         user = request.user
         
         # Get user's client
@@ -3140,7 +3090,7 @@ class StakeholderApprovalViewSet(ViewSet):
         # Serialize data
         stakeholders_data = PendingStakeholderSerializer(queryset, many=True).data
         groups_data = StakeholderGroupSimpleSerializer(combine_stakeholder_groups, many=True).data
-
+        
         return Response({
             'stakeholders': stakeholders_data,
             'stats': stats,
@@ -3169,7 +3119,7 @@ class StakeholderApprovalViewSet(ViewSet):
             Stakeholder, 
             id=stakeholder_id, 
             # group__client=client
-            client=client
+            # client=client
         )
 
         if stakeholder.status == 'approved':
@@ -3208,7 +3158,7 @@ class StakeholderApprovalViewSet(ViewSet):
                     last_name=stakeholder.last_name,
                     password=auto_pwd,
                     role="stakeholder",
-                    client=stakeholder.group.client,
+                    client=client,
                     is_active=True,
                 )
 

@@ -24,7 +24,8 @@ class ProductListView(generics.ListAPIView):
     pagination_class = None
     filter_backends = [filters.SearchFilter, filters.OrderingFilter]
     search_fields = ['name', 'description']
-    ordering = ['name']
+    ordering = ['order']
+
 
     @method_decorator(cache_page(60 * 15, key_prefix=('products')))
     def list(self,request, *args, **kwargs):

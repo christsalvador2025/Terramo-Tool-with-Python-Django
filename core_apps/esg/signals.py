@@ -2,68 +2,62 @@ from django.db.models.signals import post_save, post_delete
 from django.dispatch import receiver
 from .models import ESGQuestionResponse
 from django.core.cache import cache
+from django.conf import settings
 import logging
 
 logger = logging.getLogger(__name__)
+print(f"Using cache backend: {cache.__class__.__name__}")
+def clear_stakeholder_analysis_cache():
+    """Clear stakeholder analysis cache in a backend-agnostic way"""
+    try:
+        # Check if we're using Redis cache
+        if hasattr(cache, 'delete_pattern'):
+            # Redis backend - use pattern matching
+            cache.delete_pattern('*clientadmin_stakeholder_analysis*')
+            logger.info("Cleared cache using delete_pattern")
+        else:
+            # Fallback for other backends (like LocMemCache)
+            # Generate possible cache keys to clear
+            # This assumes your cache keys follow a predictable pattern
+            
+            # Import models to get active years and clients
+            from .models import ESGYear
+            from django.contrib.auth import get_user_model
+            
+            User = get_user_model()
+            cache_keys_to_clear = []
+            
+            # Generate cache keys for all possible combinations
+            active_years = ESGYear.objects.filter(is_active=True)
+            users = User.objects.filter(client__isnull=False)
+            
+            for year in active_years:
+                for user in users:
+                    # Match the pattern used in your cache_page decorator
+                    cache_key = f"views.decorators.cache.cache_page.clientadmin_stakeholder_analysis.{user.id}.{year.year}"
+                    cache_keys_to_clear.append(cache_key)
+            
+            if cache_keys_to_clear:
+                cache.delete_many(cache_keys_to_clear)
+                logger.info(f"Cleared {len(cache_keys_to_clear)} specific cache keys")
+            else:
+                # Last resort - clear all cache
+                cache.clear()
+                logger.info("Cleared entire cache (fallback method)")
+            
+    except Exception as e:
+        logger.error(f"Error clearing stakeholder analysis cache: {e}")
 
-
-# Option 1: Separate receivers (Recommended)
 @receiver(post_save, sender=ESGQuestionResponse)
 def invalidate_cache_on_save(sender, instance, **kwargs):
     """Invalidate cache when ESGQuestionResponse is saved"""
-    try:
-        print("Clearing product cache on save")
-        logger.info(f"ESGQuestionResponse saved: {instance.id}, clearing cache")
-        cache.delete_pattern('*clientadmin_stakeholder_analysis*')
-    except Exception as e:
-        logger.error(f"Error clearing cache on save: {e}")
-
+    print("Clearing product cache on save")
+    logger.info(f"ESGQuestionResponse saved: {instance.id}, clearing cache")
+    clear_stakeholder_analysis_cache()
 
 @receiver(post_delete, sender=ESGQuestionResponse)
 def invalidate_cache_on_delete(sender, instance, **kwargs):
     """Invalidate cache when ESGQuestionResponse is deleted"""
-    try:
-        print("Clearing product cache on delete")
-        logger.info(f"ESGQuestionResponse deleted: {instance.id}, clearing cache")
-        cache.delete_pattern('*clientadmin_stakeholder_analysis*')
-    except Exception as e:
-        logger.error(f"Error clearing cache on delete: {e}")
-
-
-# # Option 2: Single function with manual connection (Alternative)
-# def invalidate_product_cache(sender, instance, **kwargs):
-#     """Invalidate product cache when ESGQuestionResponse changes"""
-#     try:
-#         print("Clearing product cache")
-#         logger.info(f"ESGQuestionResponse changed: {instance.id}, clearing cache")
-#         cache.delete_pattern('*clientadmin_stakeholder_analysis*')
-#     except Exception as e:
-#         logger.error(f"Error clearing cache: {e}")
-
-
-# # Connect signals manually
-# post_save.connect(invalidate_product_cache, sender=ESGQuestionResponse)
-# post_delete.connect(invalidate_product_cache, sender=ESGQuestionResponse)
-
-
-# # Option 3: Using dispatch_uid to prevent duplicate connections (Best practice)
-# @receiver(post_save, sender=ESGQuestionResponse, dispatch_uid='esg_response_save_cache_clear')
-# def invalidate_cache_on_save_with_uid(sender, instance, **kwargs):
-#     """Invalidate cache when ESGQuestionResponse is saved"""
-#     try:
-#         print("Clearing product cache on save")
-#         logger.info(f"ESGQuestionResponse saved: {instance.id}, clearing cache")
-#         cache.delete_pattern('*clientadmin_stakeholder_analysis*')
-#     except Exception as e:
-#         logger.error(f"Error clearing cache on save: {e}")
-
-
-# @receiver(post_delete, sender=ESGQuestionResponse, dispatch_uid='esg_response_delete_cache_clear')
-# def invalidate_cache_on_delete_with_uid(sender, instance, **kwargs):
-#     """Invalidate cache when ESGQuestionResponse is deleted"""
-#     try:
-#         print("Clearing product cache on delete")
-#         logger.info(f"ESGQuestionResponse deleted: {instance.id}, clearing cache")
-#         cache.delete_pattern('*clientadmin_stakeholder_analysis*')
-#     except Exception as e:
-#         logger.error(f"Error clearing cache on delete: {e}")
+    print("Clearing product cache on delete")
+    logger.info(f"ESGQuestionResponse deleted: {instance.id}, clearing cache")
+    clear_stakeholder_analysis_cache()

@@ -25,9 +25,9 @@
   },
   {
     "category_name": "Environment",
-    "measure": "",
+    "measure": "Emissionen aus fossilen Brenn- und Treibstoffen reduzieren",
     "index_code": "E-4",
-    "description": "Emissionen aus fossilen Brenn- und Treibstoffen reduzieren",
+    "description": "",
     "order": 4,
     "is_active": true
   },

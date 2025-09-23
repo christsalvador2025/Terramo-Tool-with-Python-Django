@@ -464,7 +464,6 @@ class ClientProductDataSerializer(serializers.ModelSerializer):
 
 class ClientCreateDataSerializer(serializers.ModelSerializer):
     """Serializer for creating clients with products and invitation"""
-
     product_ids = serializers.ListField(
         child=serializers.UUIDField(),
         write_only=True,
@@ -591,19 +590,6 @@ class ClientCreateDataSerializer(serializers.ModelSerializer):
             # Create client
             client = Client.objects.create(**validated_data)
 
-            
-
-            # Create ClientInvitation (separate record)
-            # client_invitation = ClientInvitation.objects.create(
-            #     token=raw_token,
-            #     client=client
-            # )
-            # # Override client's own invitation_token to match raw_token
-            # if hasattr(client_invitation, 'token'):
-            #     client_invitation.token = raw_token
-            #     client_invitation.save(update_fields=['token'])
-
-            # Create client-product relationships
             if product_ids:
                 client_products = []
                 for product_id in product_ids:
@@ -616,19 +602,6 @@ class ClientCreateDataSerializer(serializers.ModelSerializer):
                         )
                     )
                 ClientProduct.objects.bulk_create(client_products)
-
-            # Create invitation if requested
-            # if send_invitation:
-            #     expires_at = timezone.now() + timezone.timedelta(days=invitation_expires_days)
-            #     ClientInvitation.objects.create(
-            #         client=client,
-            #         email=client.email,
-            #         token=raw_token,
-            #         invited_by=request.user if request and hasattr(request, 'user') else None,
-            #         expires_at=expires_at,
-            #         sent_at=timezone.now(),
-            #         status=InvitationStatus.NOT_ACCEPTED
-            #     )
 
             return client
 
@@ -654,6 +627,7 @@ class ClientListSerializer(serializers.ModelSerializer):
     
     def get_products_count(self, obj):
         return obj.clientproduct_set.filter(is_active=True).count()
+    
     
     def get_invitation_status(self, obj):
         latest_invitation = obj.invitations.order_by('-created_at').first()

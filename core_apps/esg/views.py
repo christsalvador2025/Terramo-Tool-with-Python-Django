@@ -23,6 +23,7 @@ from django.conf import settings
 from django.utils import timezone
 from django.utils.decorators import method_decorator
 from django.views.decorators.cache import cache_page
+from django.core.cache import cache
 from django.db import transaction, IntegrityError
 import logging
 
@@ -841,16 +842,37 @@ class ESGDashboardViewSet(viewsets.ViewSet):
         from django.db.models import Avg, Count, Q
         
         # Get client users (stakeholder and client admin)
-        stakeholder_groups = StakeholderGroup.objects.filter(client=client, is_active=True, disable_the_invitation=False)
+        stakeholder_groups = StakeholderGroup.objects.filter(
+            client=client,
+            is_active=True,
+            disable_the_invitation=False,
+        ).annotate(
+            stakeholder_count=Count('stakeholders', filter=Q(stakeholders__status='approved', stakeholders__client=client))
+        ).order_by('name')
+
+        # get global stakeholder groups and append later to the client data
+        global_stakeholder_groups = StakeholderGroup.objects.filter(
+            client=None,
+            is_active=True,
+            is_global=True,
+            disable_the_invitation=False,
+        ).annotate(
+            stakeholder_count=Count('stakeholders', filter=Q(stakeholders__status='approved', stakeholders__client=client))
+        ).order_by('name')
+
+        # combine the global stakeholders
+        combine_stakeholder_groups = stakeholder_groups.union(global_stakeholder_groups)
+        # stakeholder_groups = StakeholderGroup.objects.filter(client=client, is_active=True, disable_the_invitation=False)
 
         stakeholder_users = []
         
-        for group in stakeholder_groups:
+        for group in combine_stakeholder_groups:
             stakeholders = Stakeholder.objects.filter(
                 group=group, 
                 is_registered=True, 
                 status='approved',
-                user__isnull=False
+                user__isnull=False,
+                client=client,
             )
             stakeholder_users.extend([s.user for s in stakeholders])
 
@@ -896,6 +918,7 @@ class ESGDashboardViewSet(viewsets.ViewSet):
                 question_avg = {
                     'question_id': str(question.id),
                     'index_code': question.index_code,
+                    'order': question.order,
                     'measure': question.measure,
                     'avg_priority': round(avg_data['avg_priority'] or 0, 2),
                     'avg_status_quo': round(avg_data['avg_status_quo'] or 0, 2),
@@ -905,6 +928,7 @@ class ESGDashboardViewSet(viewsets.ViewSet):
                 question_avg = {
                     'question_id': str(question.id),
                     'index_code': question.index_code,
+                    'order': question.order,
                     'measure': question.measure,
                     'avg_priority': 0.0,
                     'avg_status_quo': 0.0,
@@ -1074,6 +1098,7 @@ class ESGDashboardViewSet(viewsets.ViewSet):
                 question_data = {
                     'question_id': str(question.id),
                     'index_code': question.index_code,
+                    'order': question.order,
                     'measure': question.measure,
                     'question_description': question.desription or '',  # Note: there's a typo in the model field name
                     'priority': user_resp.get('priority', 0),
@@ -1265,8 +1290,9 @@ class ESGDashboardViewSet(viewsets.ViewSet):
                 question_data = {
                     'question_id': str(question.id),
                     'index_code': question.index_code,
+                    'order': question.order,
                     'measure': question.measure,
-                    'question_description': question.desription or '',  # Note: there's a typo in the model field name
+                    'question_description': question.desription or '',
                     'priority': user_resp.get('priority', 0),
                     'status_quo': user_resp.get('status_quo', 0),
                     'comment': user_resp.get('comment', ''),
@@ -1486,15 +1512,40 @@ class ESGDashboardViewSet(viewsets.ViewSet):
         from django.db.models import Avg, Count, Q
         
         # Get client users (stakeholder and client admin)
-        stakeholder_groups = StakeholderGroup.objects.filter(client=client, is_active=True)
+        stakeholder_groups = StakeholderGroup.objects.filter(
+            client=client,
+            is_active=True,
+            disable_the_invitation=False,
+        ).annotate(
+            stakeholder_count=Count('stakeholders', filter=Q(stakeholders__status='approved', stakeholders__client=client))
+        ).order_by('name')
+
+        
+
+        # get global stakeholder groups and append later to the client data
+        global_stakeholder_groups = StakeholderGroup.objects.filter(
+            client=None,
+            is_active=True,
+            is_global=True,
+            disable_the_invitation=False,
+        ).annotate(
+            stakeholder_count=Count('stakeholders', filter=Q(stakeholders__status='approved', stakeholders__client=client))
+        ).order_by('name')
+
+        print(f"----global_stakeholder_groups---- {global_stakeholder_groups}")
+        # combine the global stakeholders
+        combine_stakeholder_groups = stakeholder_groups.union(global_stakeholder_groups)
+
+        # stakeholder_groups = StakeholderGroup.objects.filter(client=client, is_active=True)
         stakeholder_users = []
         
-        for group in stakeholder_groups:
+        for group in combine_stakeholder_groups:
             stakeholders = Stakeholder.objects.filter(
                 group=group, 
                 is_registered=True, 
                 status='approved',
-                user__isnull=False
+                user__isnull=False,
+                client=client,
             )
             stakeholder_users.extend([s.user for s in stakeholders])
         try:
@@ -1551,6 +1602,7 @@ class ESGDashboardViewSet(viewsets.ViewSet):
                 question_avg = {
                     'question_id': str(question.id),
                     'index_code': question.index_code,
+                    'order': question.order,
                     'measure': question.measure,
                     'avg_priority': round(avg_data['avg_priority'] or 0, 2),
                     'avg_status_quo': round(avg_data['avg_status_quo'] or 0, 2),
@@ -1562,6 +1614,7 @@ class ESGDashboardViewSet(viewsets.ViewSet):
                 question_avg = {
                     'question_id': str(question.id),
                     'index_code': question.index_code,
+                    'order': question.order,
                     'measure': question.measure,
                     'avg_priority': 0.0,
                     'avg_status_quo': 0.0,
@@ -2181,12 +2234,13 @@ class ESGDashboardViewSet(viewsets.ViewSet):
                 question_response[category.name]['questions'].append(question_data)
 
         return question_response
-    def _check_group_has_responses(self, stakeholder_group, current_year):
+    def _check_group_has_responses(self, stakeholder_group, client, current_year):
         """Check if stakeholder group has any completed responses"""
         # Get all stakeholders in this group who are registered users
         stakeholder_users = User.objects.filter(
             usr_stakeholder__group=stakeholder_group,
-            usr_stakeholder__status='approved'
+            usr_stakeholder__status='approved',
+            client=client,
         )
 
         if not stakeholder_users.exists():
@@ -2201,12 +2255,13 @@ class ESGDashboardViewSet(viewsets.ViewSet):
             status='submitted'  # Only check submitted responses
         ).exists()
 
-    def _calculate_stakeholder_group_category_averages(self, stakeholder_group, current_year):
+    def _calculate_stakeholder_group_category_averages(self, stakeholder_group, client, current_year):
         """Calculate category averages for a specific stakeholder group"""
         # Get all stakeholder users in this group
         stakeholder_users = User.objects.filter(
             usr_stakeholder__group=stakeholder_group,
-            usr_stakeholder__status='approved'
+            usr_stakeholder__status='approved',
+            client=client,
         )
 
         if not stakeholder_users.exists():
@@ -2390,14 +2445,26 @@ class ESGDashboardViewSet(viewsets.ViewSet):
         """Dashboard for client admin stakeholder analysis"""
         user = request.user
         year_param = request.query_params.get("year")
-        @method_decorator(cache_page(60 * 15, key_prefix=('clientadmin_stakeholder_analysis')))
-        def list(self,request, *args, **kwargs):
-            return super().list(request, *args, **kwargs)
+        # @method_decorator(cache_page(60 * 15, key_prefix=('clientadmin_stakeholder_analysis')))
+        # def list(self,request, *args, **kwargs):
+        #     return super().list(request, *args, **kwargs)
         
-        def get_queryset(self):
-            import time
-            time.sleep(5)
-            return super().get_queryset()
+        # def get_queryset(self):
+        #     import time
+        #     time.sleep(5)
+        #     return super().get_queryset()
+        # Create a unique cache key based on user and year
+        cache_key_parts = [
+            'clientadmin_stakeholder_analysis',
+            str(user.id),
+            year_param or 'current'
+        ]
+        cache_key = '_'.join(cache_key_parts)
+        
+        # Try to get from cache first
+        cached_response = cache.get(cache_key)
+        if cached_response:
+            return Response(cached_response)
         
         # Get user's client
         try:
@@ -2610,15 +2677,15 @@ class ESGDashboardViewSet(viewsets.ViewSet):
         # Add stakeholder groups
         for group in combine_stakeholder_groups:
             # Check if this group has any responses
-            has_responses = self._check_group_has_responses(group, current_year)
+            has_responses = self._check_group_has_responses(group, client, current_year)
             
             # Calculate category averages for this group if they have responses
             category_averages = {}
             question_response = {}
             
             if has_responses:
-                category_averages = self._calculate_stakeholder_group_category_averages(group, current_year)
-                question_response = self._build_stakeholder_group_question_response(group, current_year, questions)
+                category_averages = self._calculate_stakeholder_group_category_averages(group, client, current_year)
+                question_response = self._build_stakeholder_group_question_response(group, client, current_year, questions)
 
             # modify the invite_url per groups 
             
@@ -2653,9 +2720,9 @@ class ESGDashboardViewSet(viewsets.ViewSet):
             client=client,
             is_active=True,
             disable_the_invitation=False,
-            show_in_table=True, # newly added fields for filtering data.
+            show_in_table=True, # newly added fields for filtering data. stakeholders__client=client
         ).annotate(
-            stakeholder_count=Count('stakeholders', filter=Q(stakeholders__status='approved'))
+            stakeholder_count=Count('stakeholders', filter=Q(stakeholders__status='approved', stakeholders__client=client))
         ).order_by('name')
 
         # get global stakeholder groups and append later to the client data
@@ -2665,7 +2732,7 @@ class ESGDashboardViewSet(viewsets.ViewSet):
             is_global=True,
             disable_the_invitation=False
         ).annotate(
-            stakeholder_count=Count('stakeholders', filter=Q(stakeholders__status='approved'))
+            stakeholder_count=Count('stakeholders', filter=Q(stakeholders__status='approved', stakeholders__client=client))
         ).order_by('name')
 
         # combine the global stakeholders
@@ -2678,15 +2745,15 @@ class ESGDashboardViewSet(viewsets.ViewSet):
         # Add stakeholder groups
         for group in combine_stakeholder_groups:
             # Check if this group has any responses
-            has_responses = self._check_group_has_responses(group, current_year)
+            has_responses = self._check_group_has_responses(group, client, current_year)
             
             # Calculate category averages for this group if they have responses
             category_averages = {}
             question_response = {}
             
             if has_responses:
-                category_averages = self._calculate_stakeholder_group_category_averages(group, current_year)
-                question_response = self._build_stakeholder_group_question_response(group, current_year, questions)
+                category_averages = self._calculate_stakeholder_group_category_averages(group, client, current_year)
+                question_response = self._build_stakeholder_group_question_response(group, client, current_year, questions)
 
             if group.is_global:
                 # f"{settings.FRONTEND_DOMAIN_URL}/stakeholder/accept-invitation/{self.invitation_token}/"
@@ -2870,12 +2937,13 @@ class ESGDashboardViewSet(viewsets.ViewSet):
         
         return category_averages
     
-    def _build_stakeholder_group_question_response(self, stakeholder_group, current_year, questions):
+    def _build_stakeholder_group_question_response(self, stakeholder_group, client, current_year, questions):
         """Build question response structure for a stakeholder group"""
         # Get all stakeholder users in this group
         stakeholder_users = User.objects.filter(
             usr_stakeholder__group=stakeholder_group,
-            usr_stakeholder__status='approved'
+            usr_stakeholder__status='approved',
+            client=client,
         )
 
         if not stakeholder_users.exists():
