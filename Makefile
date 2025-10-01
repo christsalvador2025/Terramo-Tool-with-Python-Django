@@ -10,7 +10,7 @@ down:
 down-v:
 	docker compose -f local.yml down -v
 
-banker-config:
+terramo-config:
 	docker compose -f local.yml config
 
 makemigrations:
@@ -29,7 +29,10 @@ flush:
 	docker compose -f local.yml run --rm api python manage.py flush
 
 network-inspect:
-	docker network inspect banker_local_nw
+	docker network inspect terramo_local_nw
 
-banker-db:
-	docker compose -f local.yml exec postgres psql --username=alphaogilo --dbname=banker
+terramo-db:
+	docker compose -f local.yml exec postgres psql --username=terramo --dbname=terramo
+
+import-questions-2025:
+	docker compose -f local.yml run --rm api python manage.py import_esg_questions /app/data/general_esg_questions.json --year 2025

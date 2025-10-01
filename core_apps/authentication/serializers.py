@@ -536,6 +536,15 @@ class EmailSubmissionSerializer(serializers.Serializer):
     email = serializers.EmailField()
     token = serializers.UUIDField()  # StakeholderGroup.invitation_token
     client_id = serializers.UUIDField()
+
+    def validate_email(self, value):
+        """Validate email uniqueness"""
+        email = value.lower().strip()
+        if Client.objects.filter(email=email).exists():
+            raise serializers.ValidationError("A user with this email already exists.")
+        
+        return email
+    
     def validate(self, attrs):
         # normalize email
         email = (attrs.get("email") or "").strip().lower()

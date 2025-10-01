@@ -992,6 +992,7 @@ class StakeholderLoginToken(models.Model):
     """
     Secure storage for stakeholder login tokens
     """
+    # need tochange -- id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
     token = models.UUIDField(
         default=uuid.uuid4, 
         unique=True, 

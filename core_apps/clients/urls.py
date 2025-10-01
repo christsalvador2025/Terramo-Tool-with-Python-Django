@@ -2,7 +2,7 @@ from django.contrib import admin
 from django.urls import path, include
 from rest_framework.routers import DefaultRouter
 
-from .views import InvitationAcceptView, ClientViewSet, GetInvitationFormView, ClientViewDataSet, InvitationAcceptDataView, ClientAdminAcceptInvitationView, ClientAdminLogoutView, ClientAdminCustomLogoutView, ClientAdminVerifyInvitationtokenView, ClientAdminLoginTokenView, ClientAdminRequestLoginView, ClientAdminTokenLoginView
+from .views import InvitationAcceptView, ClientViewSet, GetInvitationFormView, ClientViewDataSet, InvitationAcceptDataView, ClientAdminAcceptInvitationView, ClientAdminLogoutView, ClientAdminCustomLogoutView, ClientAdminVerifyInvitationtokenView, ClientAdminLoginTokenView, ClientAdminRequestLoginView, ClientAdminTokenLoginView, ClientAdminAcceptInvitationUpdatedView
 # ClientAdminAcceptInvitationViewOld
 router = DefaultRouter()
 app_name = 'clients'
@@ -22,6 +22,8 @@ urlpatterns = [
 
     # client admin * 
     path('client-admin/accept-invite/<uuid:token>/', ClientAdminAcceptInvitationView.as_view(), name='client-admin-accept-invite'),
+    # ---
+    path('client-admin/accept-register-invite/<uuid:token>/', ClientAdminAcceptInvitationUpdatedView.as_view(), name='client-admin-accept-invite'),
     path('client-admin/login-token/<uuid:token>/', ClientAdminLoginTokenView.as_view(), name='client-admin-login-token'),
     # path('/accept-invitation/<uuid:token>/', GetInvitationFormView.as_view(), name='get-invitation-form'),
     # path('create-client/', ClientViewSet, name='create_client'),

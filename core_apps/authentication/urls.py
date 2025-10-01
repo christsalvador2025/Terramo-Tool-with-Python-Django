@@ -98,7 +98,7 @@ urlpatterns = [
     # **
     path('stakeholder/request-login/', StakeholderLoginRequestView.as_view(), name='stakeholder-request-login'),
      path('stakeholder/approve-status/<uuid:stakeholder_id>/', StakeholderApprovalView.as_view(), name='approve_stakeholder'),
-    path('stakeholder/login-user/<str:token>/', StakeholderUserTokenLoginView.as_view(), name='stakeholder-token-login'),
+    path('stakeholder/login-user/<uuid:token>/', StakeholderUserTokenLoginView.as_view(), name='stakeholder-token-login'),
 
     # ---- updated --- create stakeholders
     path('groups/<uuid:group_id>/stakeholders/', 

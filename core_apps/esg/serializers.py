@@ -264,22 +264,6 @@ class ClientListSerializer(serializers.ModelSerializer):
         fields = ['id', 'company_name', 'is_active']
 
 
-# Bulk update serializers
-# class BulkESGResponseUpdateSerializer(serializers.Serializer):
-#     """Serializer for bulk updating ESG responses"""
-#     responses = serializers.ListField(
-#         child=serializers.DictField()
-#     )
-    
-#     def validate_responses(self, value):
-#         required_fields = ['question_id', 'priority', 'status_quo']
-#         for response in value:
-#             for field in required_fields:
-#                 if field not in response:
-#                     raise serializers.ValidationError(
-#                         f"Missing required field '{field}' in response"
-#                     )
-#         return value
 
 class ResponseItemSerializer(serializers.Serializer):
     question_id = serializers.UUIDField()

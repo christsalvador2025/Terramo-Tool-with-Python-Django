@@ -991,7 +991,7 @@ class ESGDashboardViewSet(viewsets.ViewSet):
                     current_year = ESGYear.objects.get(year=year_value, is_active=True)
                 except ESGYear.DoesNotExist:
                     return Response({
-                        'error': f'ESG year {year_value} not found or not active'
+                        'error': f'ESG year {year_value} not found or not active',
                     }, status=status.HTTP_404_NOT_FOUND)
                     
             except (ValueError, TypeError):
@@ -1660,7 +1660,7 @@ class ESGDashboardViewSet(viewsets.ViewSet):
                 questionnaire_type__in=['client_admin', 'stakeholder'],
                 status='submitted'
             )
-            
+            print(f"{responses}")
             # Calculate averages
             if responses.exists():
                 avg_priority = responses.aggregate(
@@ -2454,17 +2454,18 @@ class ESGDashboardViewSet(viewsets.ViewSet):
         #     time.sleep(5)
         #     return super().get_queryset()
         # Create a unique cache key based on user and year
-        cache_key_parts = [
-            'clientadmin_stakeholder_analysis',
-            str(user.id),
-            year_param or 'current'
-        ]
-        cache_key = '_'.join(cache_key_parts)
+
+        # cache_key_parts = [
+        #     'clientadmin_stakeholder_analysis',
+        #     str(user.id),
+        #     year_param or 'current'
+        # ]
+        # cache_key = '_'.join(cache_key_parts)
         
-        # Try to get from cache first
-        cached_response = cache.get(cache_key)
-        if cached_response:
-            return Response(cached_response)
+        # # Try to get from cache first
+        # cached_response = cache.get(cache_key)
+        # if cached_response:
+        #     return Response(cached_response)
         
         # Get user's client
         try:
@@ -2968,20 +2969,21 @@ class ESGDashboardViewSet(viewsets.ViewSet):
                     'comments': [],
                     'response_count': 0
                 }
-            
-            if response.priority is not None and response.priority > 0:
+
+            #  Include 0 (Not Started) values, ignore only None
+            if response.priority is not None:
                 question_aggregates[question_id]['priorities'].append(response.priority)
-            if response.status_quo is not None and response.status_quo > 0:
+            if response.status_quo is not None:
                 question_aggregates[question_id]['status_quos'].append(response.status_quo)
             if response.comment:
                 question_aggregates[question_id]['comments'].append(response.comment)
-            
+
             question_aggregates[question_id]['response_count'] += 1
 
         # Build the structure similar to client admin question_response
         question_response = {}
         categories = ESGCategory.objects.filter(is_active=True).order_by('name')
-        
+
         for category in categories:
             category_questions = questions.filter(category=category)
             question_response[category.name] = {
@@ -2992,7 +2994,7 @@ class ESGDashboardViewSet(viewsets.ViewSet):
                 },
                 'questions': []
             }
-            
+
             for question in category_questions:
                 aggregates = question_aggregates.get(question.id, {
                     'priorities': [],
@@ -3000,53 +3002,61 @@ class ESGDashboardViewSet(viewsets.ViewSet):
                     'comments': [],
                     'response_count': 0
                 })
-                
-                # Calculate averages
-                priority_avg = sum(aggregates['priorities']) / len(aggregates['priorities']) if aggregates['priorities'] else 0
-                status_quo_avg = sum(aggregates['status_quos']) / len(aggregates['status_quos']) if aggregates['status_quos'] else 0
-                
-                # Get priority and status quo display values
-                priority_display = None
-                status_quo_display = None
-                
-                if priority_avg > 0:
-                    priority_choices = dict(ESGQuestionResponse.PRIORITY_CHOICES)
-                    priority_display = priority_choices.get(round(priority_avg), 'Not Started')
-                
-                if status_quo_avg > 0:
-                    status_quo_choices = dict(ESGQuestionResponse.STATUS_QUO_CHOICES)
-                    status_quo_display = status_quo_choices.get(round(status_quo_avg), 'Not Started')
-                
-                # Combine all comments
+
+                #  Calculate averages (None if no responses at all)
+                priority_avg = (
+                    sum(aggregates['priorities']) / len(aggregates['priorities'])
+                    if aggregates['priorities'] else None
+                )
+                status_quo_avg = (
+                    sum(aggregates['status_quos']) / len(aggregates['status_quos'])
+                    if aggregates['status_quos'] else None
+                )
+
+                #  Get display values (map 0 → "Not Started")
+                priority_choices = dict(ESGQuestionResponse.PRIORITY_CHOICES)
+                status_quo_choices = dict(ESGQuestionResponse.STATUS_QUO_CHOICES)
+
+                priority_display = (
+                    priority_choices.get(round(priority_avg), None)
+                    if priority_avg is not None else None
+                )
+                status_quo_display = (
+                    status_quo_choices.get(round(status_quo_avg), None)
+                    if status_quo_avg is not None else None
+                )
+
+                # Combine comments
                 combined_comments = ' | '.join(aggregates['comments']) if aggregates['comments'] else ''
-                
-                # Calculate completion score (simplified version)
+
+                #  Completion score (treat 0 as answered)
                 completion_score = 0.0
-                if priority_avg > 0:
+                if priority_avg is not None:
                     completion_score += 0.4
-                if status_quo_avg > 0:
+                if status_quo_avg is not None:
                     completion_score += 0.4
                 if combined_comments:
                     completion_score += 0.2
-                
+
                 question_data = {
                     'question_id': str(question.id),
                     'index_code': question.index_code,
                     'measure': question.measure,
                     'question_description': question.desription or '',
-                    'priority': round(priority_avg, 2) if priority_avg > 0 else None,
-                    'status_quo': round(status_quo_avg, 2) if status_quo_avg > 0 else None,
+                    'priority': round(priority_avg) if priority_avg is not None else None,
+                    'status_quo': round(status_quo_avg) if status_quo_avg is not None else None,
                     'comment': combined_comments,
                     'priority_display': priority_display,
                     'status_quo_display': status_quo_display,
                     'completion_score': completion_score,
-                    'response_count': aggregates['response_count'],  # Additional info: how many stakeholders responded
-                    'status': 'aggregated'  # Indicate this is aggregated data
+                    'response_count': aggregates['response_count'],
+                    'status': 'aggregated'
                 }
-                
+
                 question_response[category.name]['questions'].append(question_data)
 
         return question_response
+
     
     #  ================================================================================
     #        2. START: STAKEHOLDER ANAYLSIS 

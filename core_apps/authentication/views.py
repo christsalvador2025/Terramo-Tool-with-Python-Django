@@ -2346,7 +2346,7 @@ class StakeholderLoginRequestView(APIView):
             email = request.data.get('email', '').lower().strip()
             
             logger.info(f"Stakeholder login request received for email: {email}")
-            
+            print(f"stakeholder---{email}")
             if not email:
                 return Response({
                     "error": "Email is required"
@@ -2509,9 +2509,8 @@ class StakeholderUserTokenLoginView(APIView):
                 stakeholderLoginToken = StakeholderLoginToken.objects.get(
                     token=token,
                     is_used=False,
-                    expires_at__gt=timezone.now()
                 )
-                
+                print(f"stakeholderLoginToken--{stakeholderLoginToken}")
                 if not stakeholderLoginToken:
                     return Response({
                         "error": "Invalid or expired login link. Please request a new login link.",
@@ -2522,13 +2521,15 @@ class StakeholderUserTokenLoginView(APIView):
                     if(stakeholderLoginToken.is_expired()):
                         return Response({
                             "error": "Invalid or expired login link. Please request a new login link.",
-                            "status": "invalid_token"
+                            "status": "expired_token"
                         }, status=status.HTTP_400_BAD_REQUEST)
+                    
             
             except Exception as e:
+                print(f"-----error---{e}")
                 return Response({
-                    "error": "Invalid or expired login link. Please request a new login link.",
-                    "status": "invalid_token"
+                    "error": f"Invalid or expired login link. Please request a new login link. {e}",
+                    "status": "exception_invalid_token"
                 }, status=status.HTTP_400_BAD_REQUEST)
                
             

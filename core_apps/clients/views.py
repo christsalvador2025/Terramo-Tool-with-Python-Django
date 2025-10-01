@@ -239,41 +239,14 @@ class ClientViewDataSet(ModelViewSet):
         except Exception as e:
             logger.error(f"Failed to create ESG responses for {user_obj.email}: {e}")
        
-        # StakeholderGroup.objects.create(
-        #     name="Management",
-        #     client=client,
-        #     created_by=self.request.user
-        # )
-        # invitation_raw_token = serializer.validated_data.get('raw_token')
+
         invitation_raw_token = serializer.validated_data.get('raw_token')
-        # Generate invitation token for client admin
-        # invitation_token = InvitationToken.objects.create(
-        #     token=invitation_token,
-        #     token_type='client_admin_invite',
-        #     client_admin=client_admin,
-        #     email=client_admin.email
-        # )
-        
+       
         # Create client invitations
         invitation_token = ClientInvitation.objects.create(
             token = invitation_raw_token,
             client=client
         )
-        # auto_password = get_random_string(32)
-        # auto_suffix_username = get_random_string(6)
-       
-        # user_obj = User.objects.create(
-        #     username=f"T-{first_name}-{auto_suffix_username}",
-        #     email=client.email,
-        #     first_name=first_name,
-        #     last_name=last_name,
-        #     password=make_password(auto_password),   
-        #     role='client_admin',   
-        #     is_active=True,
-        #     is_staff=False,  
-        #     is_superuser=False,
-        #     account_status=User.AccountStatus.ACTIVE,
-        # )
         
         user_info = {
             'first_name': user_obj.first_name,
@@ -403,47 +376,7 @@ class ClientViewDataSet(ModelViewSet):
         }
         
         return Response(stats, status=status.HTTP_200_OK)
-
-    # def create_esg_responses_for_user(self, user):
-    #     """
-    #     Create ESGQuestionResponse records for a client admin user
-    #     """
-    #     # Get current ESG year
-    #     current_year = ESGYear.get_current_year()
-        
-    #     if not current_year:
-    #         logger.warning("No current ESG year found, skipping ESG response creation")
-    #         return
-        
-    #     # Get all active ESG questions for the current year
-    #     active_questions = ESGQuestion.objects.filter(
-    #         year=current_year,
-    #         is_active=True
-    #     ).select_related('category')
-        
-    #     if not active_questions.exists():
-    #         logger.warning(f"No active ESG questions found for year {current_year.year}")
-    #         return
-        
-    #     # Create ESGQuestionResponse records
-    #     responses_to_create = []
-    #     for question in active_questions:
-    #         response = ESGQuestionResponse(
-    #             question=question,
-    #             user=user,
-    #             questionnaire_type='client_admin',
-    #             status='draft'
-    #         )
-    #         responses_to_create.append(response)
-        
-    #     # Bulk create for better performance
-    #     created_responses = ESGQuestionResponse.objects.bulk_create(
-    #         responses_to_create, 
-    #         ignore_conflicts=True
-    #     )
-    #     print(f"Created {len(responses_to_create)} ESG question responses for {user.email}")
-    #     logger.info(f"Created {len(responses_to_create)} ESG question responses for {user.email}")
-    #     return created_responses
+ 
     
 class ProductListView(generics.ListAPIView):
     """List all available products for client creation"""
@@ -468,14 +401,7 @@ class InvitationAcceptDataView(APIView):
 
     def get(self, request, token, *args, **kwargs):
         """Handles GET request to accept invitation via token in URL."""
-        # try:
-        #     # Validate token format
-        #     uuid.UUID(token)
-        # except ValueError:
-        #     return Response(
-        #         {"detail": "Invalid invitation token format."},
-        #         status=status.HTTP_400_BAD_REQUEST
-        #     )
+        
         try:
             invitation = get_object_or_404(Invitation, token=token)
         except Invitation.DoesNotExist: # Use a more specific exception for clarity
@@ -744,498 +670,252 @@ class ClientAdminAcceptInvitationView(APIView):
             }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
         
 # changes  prev
-# class ClientAdminAcceptInvitationView(APIView):
-#     """Handle invitation acceptance"""
+class ClientAdminAcceptInvitationUpdatedView(APIView):
+    """Handle invitation acceptance"""
     
-#     permission_classes = [permissions.AllowAny]
-#     throttle_classes = [AnonRateThrottle]
+    permission_classes = [permissions.AllowAny]
+    throttle_classes = [AnonRateThrottle]
     
-#     # customizing this because of the changes in prototypes:
-#     def get(self, request, token):
-#         """
-#         Handle invitation link click - Initial token verification
+    # --- customizing this because of the changes in prototypes:
+    def get(self, request, token):
+        """
+        Handle invitation link click - Initial token verification
         
-#         """
+        """
         
-#         try:
-#             invitation = ClientInvitation.objects.select_related('client').get(
-#                 token=token,
-#                 is_active=True
-#             )
+        try:
+            invitation = ClientInvitation.objects.select_related('client').get(
+                token=token,
+                is_active=True
+            )
             
-#             if not invitation.is_active or invitation.is_expired:
-#                 return Response({
-#                     "error": "Invitation is expired or not active."
-#                 }, status=status.HTTP_400_BAD_REQUEST)
+            if not invitation.is_active or invitation.is_expired:
+                return Response({
+                    "error": "Invitation is expired or not active."
+                }, status=status.HTTP_400_BAD_REQUEST)
             
-#             # Check if already accepted and verified
-#             # commented this : following the updated prototypes 
-#             # if invitation.is_accepted and invitation.email_verified:
              
-#             #     # Send login email again
-#             #     subject = f"Login Token for - {invitation.client.company_name}"
-#             #     message = generate_login_email(
-#             #         invitation.client.contact_person_first_name,
-#             #         invitation.get_invite_url()
-#             #     )
-                
-#             #     try:
-#             #         send_mail(
-#             #             subject=subject,
-#             #             message=message,
-#             #             from_email=settings.DEFAULT_FROM_EMAIL,
-#             #             recipient_list=[invitation.client.email],
-#             #             fail_silently=False,
-#             #         )
-#             #     except Exception as e:
-#             #         logger.error(f"Failed to send invitation email to {invitation.client.email}: {e}")
-                
-#             #     return Response({
-#             #         'message': 'Email already verified. Login url sent. Please check your email and click the login link.',
-#             #         'message_stat': 'email_verified',
-#             #     }, status=status.HTTP_200_OK)
+            return Response({
+                "message": "Invitation accepted. Please verify your email register to continue.",
+                "message_stat": "for_registration",
+                "redirect_url": None
+            }, status=status.HTTP_200_OK)
             
-#             # Mark as accepted if not already
-#             # --- commented this : following the updated prototypes  ------
-#             # if not invitation.is_accepted:
-#             #     invitation.is_accepted = True
-#             #     invitation.accepted_at = timezone.now()
-#             #     invitation.save(update_fields=['is_accepted', 'accepted_at'])
-
-#             return Response({
-#                 "message": "Invitation accepted. Please verify your email register to continue.",
-#                 "message_stat": "for_registration",
-#                 "redirect_url": None
-#             }, status=status.HTTP_200_OK)
-            
-#         except ClientInvitation.DoesNotExist:
-#             return Response({
-#                 "message": "Invitation not found or has expired.",
-#                 "message_stat": "invitation_not_found",
-#                 "redirect_url": None
-#             }, status=status.HTTP_404_NOT_FOUND)
-#         except Exception as e:
-#             logger.error(f"Error in GET accept invitation: {e}")
-#             return Response({
-#                 "message": f"An error occurred while processing the= {invitation} =invitation.{token}--{e}",
-#                 "message_stat": "error",
-#                 "redirect_url": None
-#             }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+        except ClientInvitation.DoesNotExist:
+            return Response({
+                "message": "Invitation not found or has expired.",
+                "message_stat": "invitation_not_found",
+                "redirect_url": None
+            }, status=status.HTTP_404_NOT_FOUND)
+        except Exception as e:
+            logger.error(f"Error in GET accept invitation: {e}")
+            return Response({
+                "message": f"An error occurred while processing the= {invitation} =invitation.{token}--{e}",
+                "message_stat": "error",
+                "redirect_url": None
+            }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
     
 
 
-#     def post(self, request, token):
-#         """
-#         API endpoint for email verification and authentication
-#         Workflow:
-#         1. User click the invitation
-#         2. Registration will show with first name, last name, and email.
-#         3. System Checks : check if email is already registered and used.
-#         4. Success: Automatically login and navigated to the dashboard.
-#         """
+    def post(self, request, token):
+        """
+        API endpoint for email verification and authentication
+        Workflow:
+        1. User click the invitation
+        2. Registration will show with first name, last name, and email.
+        3. System Checks : check if email is already registered and used.
+        4. Success: Automatically login and navigated to the dashboard.
+        """
         
-#         try:
-#             # from user payload request
-#             first_name = request.data.get('first_name', '')
-#             last_name = request.data.get('last_name', '')
-#             email = request.data.get('email', '').lower().strip()
+        try:
+            # from user payload request
+            first_name = request.data.get('first_name', '')
+            last_name = request.data.get('last_name', '')
+            email = request.data.get('email', '').lower().strip()
 
-#             # email validation
-#             if not email:
-#                 return Response({
-#                     "error": "Email is required"
-#                 }, status=status.HTTP_400_BAD_REQUEST)
+            # email validation
+            if not email:
+                return Response({
+                    "error": "Email is required"
+                }, status=status.HTTP_400_BAD_REQUEST)
             
-#             if not first_name:
-#                 return Response({
-#                     "error": "First Name is required"
-#                 }, status=status.HTTP_400_BAD_REQUEST)
+            if not first_name:
+                return Response({
+                    "error": "First Name is required"
+                }, status=status.HTTP_400_BAD_REQUEST)
             
-#             if not last_name:
-#                 return Response({
-#                     "error": "Last Name is required"
-#                 }, status=status.HTTP_400_BAD_REQUEST)
+            if not last_name:
+                return Response({
+                    "error": "Last Name is required"
+                }, status=status.HTTP_400_BAD_REQUEST)
             
-#             # Validate email format (basic validation)
-#             if '@' not in email:
-#                 return Response({
-#                     "error": "Please enter a valid email address"
-#                 }, status=status.HTTP_400_BAD_REQUEST)
+            # Validate email format (basic validation)
+            if '@' not in email:
+                return Response({
+                    "error": "Please enter a valid email address"
+                }, status=status.HTTP_400_BAD_REQUEST)
 
-#             # Get the invitation
-#             invitation = ClientInvitation.objects.select_related('client').get(
-#                 token=token,
-#                 is_active=True
-#             )
+            # Get the invitation
+            invitation = ClientInvitation.objects.select_related('client').get(
+                token=token,
+                is_active=True
+            )
             
-#             if not invitation.is_active or invitation.is_expired:
-#                 return Response({
-#                     "error": "Invitation is expired or not active."
-#                 }, status=status.HTTP_400_BAD_REQUEST)
+            if not invitation.is_active or invitation.is_expired:
+                return Response({
+                    "error": "Invitation is expired or not active."
+                }, status=status.HTTP_400_BAD_REQUEST)
             
-#             client_admin = ClientAdmin.objects.filter(email=email)
-#             # Get the data sent from request
+            client_admin = ClientAdmin.objects.filter(email=email)
+            # Get the data sent from request
             
             
-#             if client_admin.exists():
-#                 return Response({
-#                     "error": "Email address is already taken, please use another one."
-#                 }, status=status.HTTP_400_BAD_REQUEST)
+            if client_admin.exists():
+                return Response({
+                    "error": "Email address is already taken, please use another one."
+                }, status=status.HTTP_400_BAD_REQUEST)
             
-#             try:
-#                 auto_pwd   = get_random_string(32)
-#                 client_admin_created = ClientAdmin.objects.create(
-#                         first_name=first_name,
-#                         last_name=last_name,
-#                         email=email,
-#                         invitation_used=invitation,
-#                         client=invitation.client
-#                     )
-#                 user_obj   = User.objects.create_user(
-#                     # username=auto_user,
-#                     email=email,
-#                     first_name=first_name,
-#                     last_name=last_name,
-#                     password=auto_pwd,
-#                     role="client_admin",
-#                     client=invitation.client,
-#                     is_active=True,
-#                 )
-#                 invitation.is_accepted = True
-#                 invitation.email_verified = True
-#                 invitation.is_active = True
-#                 invitation.accepted_at = timezone.now()
+            try:
+                auto_pwd   = get_random_string(32)
+                client_admin_created = ClientAdmin.objects.create(
+                        first_name=first_name,
+                        last_name=last_name,
+                        email=email,
+                        invitation_used=invitation,
+                        client=invitation.client
+                    )
+                user_obj   = User.objects.create_user(
+                    # username=auto_user,
+                    email=email,
+                    first_name=first_name,
+                    last_name=last_name,
+                    password=auto_pwd,
+                    role="client_admin",
+                    client=invitation.client,
+                    is_active=True,
+                )
+                invitation.is_accepted = True
+                invitation.email_verified = True
+                invitation.is_active = True
+                invitation.accepted_at = timezone.now()
                 
-#                 invitation.save(update_fields=['is_accepted', 'email_verified', 'is_active', 'accepted_at'])
+                invitation.save(update_fields=['is_accepted', 'email_verified', 'is_active', 'accepted_at'])
                 
-#                 # generate login and send email
-#                 generate_client_admin_token(user_obj, request, invitation)
+                # generate login and send email
+                generate_client_admin_token(user_obj, request, invitation)
 
-#                 return Response({
-#                     'message': 'Successfuly registered.',
-#                     'message_stat': 'registered'
-#                 }, status=status.HTTP_200_OK)
-#             except Exception as e:
-#                     logger.error(f"Failed to register the account. ")
+                return Response({
+                    'message': 'Successfuly registered.',
+                    'message_stat': 'registered'
+                }, status=status.HTTP_200_OK)
+            except Exception as e:
+                    logger.error(f"Failed to register the account. ")
 
             
-#             # Check if invitation is already verified
-#             if invitation.email_verified and invitation.is_active and invitation.is_accepted:
-#                 # Send login email again
-#                 subject = f"Login Token for - {invitation.client.company_name}"
-#                 message = generate_login_email(
-#                     invitation.client.contact_person_first_name,
-#                     invitation.get_invite_url()
-#                 )
+            # Check if invitation is already verified
+            if invitation.email_verified and invitation.is_active and invitation.is_accepted:
+                # Send login email again
+                subject = f"Login Token for - {invitation.client.company_name}"
+                message = generate_login_email(
+                    invitation.client.contact_person_first_name,
+                    invitation.get_invite_url()
+                )
                 
-#                 try:
-#                     send_mail(
-#                         subject=subject,
-#                         message=message,
-#                         from_email=settings.DEFAULT_FROM_EMAIL,
-#                         recipient_list=[invitation.client.email],
-#                         fail_silently=False,
-#                     )
-#                 except Exception as e:
-#                     logger.error(f"Failed to send invitation email to {invitation.client.email}: {e}")
+                try:
+                    send_mail(
+                        subject=subject,
+                        message=message,
+                        from_email=settings.DEFAULT_FROM_EMAIL,
+                        recipient_list=[invitation.client.email],
+                        fail_silently=False,
+                    )
+                except Exception as e:
+                    logger.error(f"Failed to send invitation email to {invitation.client.email}: {e}")
                 
-#                 return Response({
-#                     'message': 'Email already verified. Login email sent. Please check your email and click the login link.',
-#                     'message_stat': 'email_verified'
-#                 }, status=status.HTTP_200_OK)
+                return Response({
+                    'message': 'Email already verified. Login email sent. Please check your email and click the login link.',
+                    'message_stat': 'email_verified'
+                }, status=status.HTTP_200_OK)
 
-#             if not invitation.is_accepted:
-#                 return Response({
-#                     'message': 'Please check your email to accept the invitation first.',
-#                     'message_stat': 'not_accepted'
-#                 }, status=status.HTTP_400_BAD_REQUEST)
+            if not invitation.is_accepted:
+                return Response({
+                    'message': 'Please check your email to accept the invitation first.',
+                    'message_stat': 'not_accepted'
+                }, status=status.HTTP_400_BAD_REQUEST)
 
-#             # Verify the email matches the invited email
-#             if email != invitation.client.email.lower().strip():
-#                 return Response({
-#                     "error": "Email does not match the invitation recipient"
-#                 }, status=status.HTTP_400_BAD_REQUEST)
+            # Verify the email matches the invited email
+            if email != invitation.client.email.lower().strip():
+                return Response({
+                    "error": "Email does not match the invitation recipient"
+                }, status=status.HTTP_400_BAD_REQUEST)
 
-#             # Find the user and authenticate
-#             try:
-#                 user = User.objects.get(email=email, is_active=True)
+            # Find the user and authenticate
+            try:
+                user = User.objects.get(email=email, is_active=True)
                 
-#                 # Mark invitation as email verified
-#                 invitation.email_verified = True
-#                 invitation.save(update_fields=['email_verified'])
+                # Mark invitation as email verified
+                invitation.email_verified = True
+                invitation.save(update_fields=['email_verified'])
                 
-#                 logger.info(f"User found and invitation verified: {user.email}")
+                logger.info(f"User found and invitation verified: {user.email}")
                 
-#             except User.DoesNotExist:
-#                 return Response({
-#                     "error": "User account not found. Please contact support."
-#                 }, status=status.HTTP_404_NOT_FOUND)
+            except User.DoesNotExist:
+                return Response({
+                    "error": "User account not found. Please contact support."
+                }, status=status.HTTP_404_NOT_FOUND)
 
-#             # Check if user is locked out (if you have this functionality)
-#             # if hasattr(user, 'is_locked_out') and user.is_locked_out:
-#             #     return Response({
-#             #         "error": f"Account is locked due to multiple failed login attempts."
-#             #     }, status=status.HTTP_403_FORBIDDEN)
-
-#             # Generate JWT tokens
-#             refresh = RefreshToken.for_user(user)
-#             access_token = str(refresh.access_token)
-#             refresh_token = str(refresh)
+             
+            # Generate JWT tokens
+            refresh = RefreshToken.for_user(user)
+            access_token = str(refresh.access_token)
+            refresh_token = str(refresh)
             
-#             # Update last login
-#             user.last_login = timezone.now()
-#             user.save(update_fields=['last_login'])
+            # Update last login
+            user.last_login = timezone.now()
+            user.save(update_fields=['last_login'])
             
-#             # Prepare response data
-#             response_data = {
-#                 'message': 'Login successful',
-#                 'message_stat': 'email_verified',
-#                 'access': access_token,
-#                 'refresh': refresh_token,
-#                 'user': {
-#                     'id': user.id,
-#                     'email': user.email,
-#                     'first_name': getattr(user, 'first_name', ''),
-#                     'last_name': getattr(user, 'last_name', ''),
-#                     'is_active': user.is_active,
-#                     'last_login': user.last_login.isoformat() if user.last_login else None,
-#                 }
-#             }
+            # Prepare response data
+            response_data = {
+                'message': 'Login successful',
+                'message_stat': 'email_verified',
+                'access': access_token,
+                'refresh': refresh_token,
+                'user': {
+                    'id': user.id,
+                    'email': user.email,
+                    'first_name': getattr(user, 'first_name', ''),
+                    'last_name': getattr(user, 'last_name', ''),
+                    'is_active': user.is_active,
+                    'last_login': user.last_login.isoformat() if user.last_login else None,
+                }
+            }
             
-#             response = Response(response_data, status=status.HTTP_200_OK)
+            response = Response(response_data, status=status.HTTP_200_OK)
             
-#             # Set authentication cookies (if you have this function)
-#             try:
-#                 set_auth_cookies(response, access_token, refresh_token)
-#             except NameError:
-#                 # If set_auth_cookies function doesn't exist, skip it
-#                 pass
+            # Set authentication cookies (if you have this function)
+            try:
+                set_auth_cookies(response, access_token, refresh_token)
+            except NameError:
+                # If set_auth_cookies function doesn't exist, skip it
+                pass
             
-#             logger.info(f"User {user.email} logged in successfully via invitation")
+            logger.info(f"User {user.email} logged in successfully via invitation")
             
-#             return response
+            return response
             
-#         except ClientInvitation.DoesNotExist:
-#             return Response({
-#                 "error": "Invitation not found or has expired."
-#             }, status=status.HTTP_404_NOT_FOUND)
+        except ClientInvitation.DoesNotExist:
+            return Response({
+                "error": "Invitation not found or has expired."
+            }, status=status.HTTP_404_NOT_FOUND)
             
-#         except Exception as e:
-#             logger.error(f"Error in POST accept invitation: {e}")
-#             return Response({
-#                 "error": f"An error occurred during authentication. Please try again. {e}"
-#             }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+        except Exception as e:
+            logger.error(f"Error in POST accept invitation: {e}")
+            return Response({
+                "error": f"An error occurred during authentication. Please try again. {e}"
+            }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 # changes  prev
 
 
-# class ClientAdminAcceptInvitationView(APIView):
-#     """Handle invitation acceptance"""
-    
-#     permission_classes = [permissions.AllowAny]
-#     throttle_classes = [AnonRateThrottle]
-    
-#     def get(self, request, token):
-#         """Handle invitation link click"""
-#         try:
-#             invitation = ClientInvitation.objects.select_related('client').get(
-#                 token=token,
-#                 is_active=True
-#             )
-            
-#             # Check if already accepted and verified
-#             if invitation.is_accepted and invitation.email_verified:
-#                 # Redirect to login page
-#                 redirect_url = f"{settings.FRONTEND_DOMAIN_URL}/{settings.FRONTEND_CLIENT_LOGIN_ENDPOINT}"
-#                 # return redirect(redirect_url)
-#                 return Response({
-#                     "message": "Invitation already accepted. Please login using your email.",
-#                     "message_stat" : "accepted_and_verified",
-#                     "redirect_url": redirect_url
-#                 }, status=status.HTTP_200_OK)
-            
-#             # Mark as accepted if not already
-#             if not invitation.is_accepted:
-#                 invitation.is_accepted = True
-#                 invitation.accepted_at = timezone.now()
-#                 invitation.save(update_fields=['is_accepted', 'accepted_at'])
-
-#                 return Response({
-#                     "message": "Invitation Accepted. Please verify, enter again your email who received the invitation",
-#                     "message_stat" : "accepted_and_for_verification",
-#                     "redirect_url": None
-#                 }, status=status.HTTP_200_OK)
-            
-            
-#         except ClientInvitation.DoesNotExist:
-       
-#             return Response({
-#                 "message": "Invitation not found",
-#                 "message_stat" : "invitation_not_found",
-#                 "redirect_url": None
-#             }, status=status.HTTP_404_NOT_FOUND)
-    
-#     def post(self, request, token):
-#         """API endpoint for invitation acceptance status"""
-#         serializer = AcceptInvitationWithEmailSerializer(data=request.data)
-#         print(f"request.data: {request.data}")
-#         if serializer.is_valid():
-#             invitation = serializer.context['invitation']
-            
-#             ## Check if invitation is already registered
-#             if invitation.email_verified and invitation.is_active and invitation.is_accepted:
-#                 subject = f"Login Token for - {invitation.client.company_name}"
-#                 message = generate_login_email(
-#                     invitation.client.contact_person_first_name,
-#                     invitation.get_invite_url()
-#                 )
-                
-#                 try:
-#                     send_mail(
-#                         subject=subject,
-#                         message=message,
-#                         from_email=settings.DEFAULT_FROM_EMAIL,
-#                         recipient_list=[invitation.client.email],
-#                         fail_silently=False,
-#                     )
-#                 except Exception as e:
-#                     logger.error(f"Failed to send invitation email to {invitation.client.email}: {e}")
-#                 return Response({
-#                     'message': 'Email already verified, Login email sent. Please check your email and click the login link.'
-#                 })
-
-#             if not invitation.is_accepted:
-#                 return Response({
-#                     'message': 'Please check your email to accept the invitation first.'
-#                 })
-
-#             # Mark invitation as registered for new users
-            
-            
-#             # return Response({
-#             #     'message': 'Successfully verified',
-#             #     'email': invitation.client.email,
-#             #     'action': 'email_verified',
-#             #     'status': 'newly_registered',
-#             #     'redirect_url': '/client-admin/dashboard/'
-#             # }, status=status.HTTP_200_OK)
-#             # -----------------
-#             try:
-               
-#                 # client_admin = ClientAdmin.objects.get(email=invitation.client.email, is_active=True)
-#                 # login_token = InvitationToken.objects.create(
-#                 #     token_type='login_token',
-#                 #     client_admin=client_admin,
-#                 #     email=invitation.client.email
-#                 # )
-#                 # login_token.mark_as_used()
-                
-#                 # # Create login session
-#                 # login_session = LoginSession.objects.create(
-#                 #     session_type='client_admin',
-#                 #     client_admin=client_admin
-#                 # )
-                
-#                 # # Update last login
-#                 # client_admin.last_login = timezone.now()
-#                 # client_admin.save(update_fields=['last_login'])
-                
-#                 # response_data = {
-#                 #     'message': 'Login successful',
-#                 #     'session_key': login_session.session_key,
-#                 #     'user': {
-#                 #         'id': str(client_admin.id),
-#                 #         'email': client_admin.email,
-#                 #         'first_name': client_admin.first_name,
-#                 #         'last_name': client_admin.last_name,
-#                 #         'role': 'client_admin',
-#                 #         'client_company': client_admin.client.company_name,
-#                 #     }
-#                 # }
-                
-#                 # response = Response(response_data, status=status.HTTP_200_OK)
-                
-#                 # # Set session cookie
-#                 # response.set_cookie(
-#                 #     'session_key',
-#                 #     login_session.session_key,
-#                 #     max_age=60*60*24*30,  # 30 days
-#                 #     httponly=True,
-#                 #     secure=settings.COOKIE_SECURE,
-#                 #     samesite=settings.COOKIE_SAMESITE
-#                 # )
-#                 email = serializer.validated_data["email"].lower().strip()
-#                 try:
-                    
-#                     user = User.objects.get(email=email)
-#                     invitation.email_verified = True
-#                     invitation.save()
-#                     logger.info(f"Successful ------------------ try {user}")
-#                 except User.DoesNotExist:
-#                     return Response({"error": "User not found"}, status=404)
-
-#                 # Generate tokens
-#                 # user = User.objects.filter(email=email)
-#                 if not user:
-#                     return Response(
-#                         {"error": "Invalid exiting user with that client"},
-#                         status=status.HTTP_400_BAD_REQUEST,
-#                     )
-#                 # if user.is_locked_out:
-#                 #     return Response(
-#                 #         {
-#                 #             "error": f"Account is locked due to multiple failed login attempts. "
-#                 #             f"Please try again after "
-#                 #             f"{settings.LOCKOUT_DURATION.total_seconds() / 60} minutes "
-#                 #         },
-#                 #         status=status.HTTP_403_FORBIDDEN,
-#                 #     )
-
-              
-
-#                 refresh = RefreshToken.for_user(user)
-#                 access_token = str(refresh.access_token)
-#                 refresh_token = str(refresh)
-#                 logger.info(f"Successful ------------------ after token")
-#                 print(f"user -----{user}")
-#                 # Update last login
-#                 user.last_login = timezone.now()
-#                 user.save(update_fields=['last_login'])
-                
-#                 # Prepare response data
-#                 response_data = {
-#                     'message': 'Login successful',
-#                     'access': access_token,
-#                     'refresh': refresh_token,
-#                     'user': {
-#                         'id': user.id,
-#                         'email': user.email,
-#                         'first_name': getattr(user, 'first_name', ''),
-#                         'last_name': getattr(user, 'last_name', ''),
-#                         'is_active': user.is_active,
-#                         'last_login': user.last_login.isoformat() if user.last_login else None,
-#                     }
-#                 }
-                
-#                 response = Response(response_data, status=status.HTTP_200_OK)
-                
-#                 # Set authentication cookies
-#                 set_auth_cookies(response, access_token, refresh_token)
-                
-#                 logger.info(f"User {user.email} logged in successfully")
-                
-#                 return response
-                
-#             except Exception as e:
-#                 logger.error(f"Error {e}")
-#                 print(f"Error: {e}")
-#                 return Response(
-#                     {"error": f"Error: {e}"},
-#                     status=status.HTTP_400_BAD_REQUEST
-#                 )
-            
-#             # ----------------------------
-          
-#         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 @method_decorator(never_cache, name='dispatch')
 class ClientAdminAcceptInvite(APIView):
     permission_classes = [] # No authentication needed for this endpoint
@@ -1394,103 +1074,7 @@ class ClientAdminVerifyInvitationtokenView(APIView):
                     'message': 'Email already verified, Login email sent. Please check your email and click the login link.'
                 })
 
-        # token = request.data.get("token")
-
-        # if not token:
-        #     return Response(
-        #         {"error": "Token is required"},
-        #         status=status.HTTP_400_BAD_REQUEST,
-        #     )
-        # # user = User.objects.filter(otp=otp, otp_expiry_time__gt=timezone.now()).first()
-        # client_invitation = ClientInvitation.objects.filter(token=token)
-        # if not client_invitation:
-        #     return Response(
-        #         {"error": "No Invitation Exist."},
-        #         status=status.HTTP_400_BAD_REQUEST,
-        #     )
-        # user = User.objects.filter(email=client_invitation.client.email)
-        # if not user:
-        #     return Response(
-        #         {"error": "Invalid exiting user with that client"},
-        #         status=status.HTTP_400_BAD_REQUEST,
-        #     )
-        # if user.is_locked_out:
-        #     return Response(
-        #         {
-        #             "error": f"Account is locked due to multiple failed login attempts. "
-        #             f"Please try again after "
-        #             f"{settings.LOCKOUT_DURATION.total_seconds() / 60} minutes "
-        #         },
-        #         status=status.HTTP_403_FORBIDDEN,
-        #     )
-
-        # # user.verify_otp(otp)
-
-        # refresh = RefreshToken.for_user(user)
-        # access_token = str(refresh.access_token)
-        # refresh_token = str(refresh)
-
-        # response = Response(
-        #     {
-        #         "success": "Login successful. Now add your profile information, "
-        #         "so that we can create an account for you"
-        #     },
-        #     status=status.HTTP_200_OK,
-        # )
-        # set_auth_cookies(response, access_token, refresh_token)
-        # logger.info(f"Successful login with OTP: {user.email}")
-        # return response
-
-# class ClientAdminVerifyView(APIView):
-#     permission_classes = [permissions.AllowAny]
-
-#     def get(self, request):
-#         token = request.data.get("token")
-
-#         if not token:
-#             return Response(
-#                 {"error": "Token is required"},
-#                 status=status.HTTP_400_BAD_REQUEST,
-#             )
-#         # user = User.objects.filter(otp=otp, otp_expiry_time__gt=timezone.now()).first()
-#         client_invitation = ClientInvitation.objects.filter(token=token)
-#         if not client_invitation:
-#             return Response(
-#                 {"error": "No Invitation Exist."},
-#                 status=status.HTTP_400_BAD_REQUEST,
-#             )
-#         user = User.objects.filter(email=client_invitation.client.email)
-#         if not user:
-#             return Response(
-#                 {"error": "Invalid exiting user with that client"},
-#                 status=status.HTTP_400_BAD_REQUEST,
-#             )
-#         if user.is_locked_out:
-#             return Response(
-#                 {
-#                     "error": f"Account is locked due to multiple failed login attempts. "
-#                     f"Please try again after "
-#                     f"{settings.LOCKOUT_DURATION.total_seconds() / 60} minutes "
-#                 },
-#                 status=status.HTTP_403_FORBIDDEN,
-#             )
-
-#         # user.verify_otp(otp)
-
-#         refresh = RefreshToken.for_user(user)
-#         access_token = str(refresh.access_token)
-#         refresh_token = str(refresh)
-
-#         response = Response(
-#             {
-#                 "success": "Login successful. Now add your profile information, "
-#                 "so that we can create an account for you"
-#             },
-#             status=status.HTTP_200_OK,
-#         )
-#         set_auth_cookies(response, access_token, refresh_token)
-#         logger.info(f"Successful login with OTP: {user.email}")
-#         return response
+        
 # Add this to your views.py
 
 @method_decorator(never_cache, name='dispatch')
@@ -1666,29 +1250,6 @@ class ClientAdminRequestLoginView(APIView):
                             "status": "user_not_found"
                         }, status=status.HTTP_404_NOT_FOUND)
                     
-                    # Invalidate any existing unused tokens for this user (optional security measure)
-                    # ClientAdminLoginToken.objects.filter(
-                    #     user=user,
-                    #     is_used=False
-                    # ).update(is_used=True, used_at=timezone.now())
-                    
-                    # # Create new login token
-                    # login_token_obj = ClientAdminLoginToken.objects.create(
-                    #     user=user,
-                    #     client_invitation=invitation,
-                    #     ip_address=self.get_client_ip(request),
-                    #     user_agent=request.META.get('HTTP_USER_AGENT', '')[:500]  # Limit length
-                    # )
-                    
-                    # login_url = login_token_obj.get_login_url()
-                    # logger.info(f"Generated login token for {email}: {login_token_obj.token}")
-                    
-                    # # Get user's name for email
-                    # user_name = user.first_name or client.contact_person_first_name
-                    
-                    # # Generate login email
-                    # subject = f"Login Link - {client.company_name}"
-                    # message = generate_login_email(user_name, login_url)
                     
                     # generate login token then send mail
                     generate_client_admin_token(user, request, invitation)
@@ -1697,33 +1258,7 @@ class ClientAdminRequestLoginView(APIView):
                             "success": True,
                             "status": "login_link_sent"
                         }, status=status.HTTP_200_OK)
-                    # Send email
-                    # try:
-                    #     send_mail(
-                    #         subject=subject,
-                    #         message=message,
-                    #         from_email=settings.DEFAULT_FROM_EMAIL,
-                    #         recipient_list=[email],
-                    #         fail_silently=False,
-                    #     )
-                        
-                    #     logger.info(f"Login link sent successfully to {email}")
-                        
-                    #     return Response({
-                    #         "message": "Login link has been sent to your email address. Please check your email and click the link to access your account. The link will expire in 1 hour.",
-                    #         "success": True,
-                    #         "status": "login_link_sent"
-                    #     }, status=status.HTTP_200_OK)
-                        
-                    # except Exception as e:
-                    #     logger.error(f"Failed to send login email to {email}: {e}")
-                    #     # Mark token as used since email failed
-                    #     login_token_obj.mark_as_used()
-                    #     return Response({
-                    #         "error": "Failed to send email. Please try again later.",
-                    #         "status": "email_send_failed"
-                    #     }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
-                
+                    
                 else:
                     logger.error(f"Unexpected state for {email}: verified={email_verified}, accepted={is_accepted}")
                     return Response({

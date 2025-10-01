@@ -62,6 +62,7 @@ LOCAL_APPS = [
     "core_apps.authentication",
     "core_apps.clients",
     "core_apps.esg",
+    "core_apps.double_materiality",
     # "core_apps.stakeholder_analysis",
     # "core_apps.materiality_analysis",
     # "core_apps.user_profile",
