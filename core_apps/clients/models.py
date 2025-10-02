@@ -191,7 +191,7 @@ class ClientAdmin(TimeStampedModel):
     
     class Meta:
      
-        unique_together = ['client', 'product']
+        # unique_together = ['client', 'product']
         indexes = [
             models.Index(fields=['client', 'email']),
         ]
