@@ -37,35 +37,36 @@ def generate_client_admin_token(user, request, invitation=None):
     # Send email
     EmailService.send_login_token_email(user, login_url, role_display)
 
-def generate_stakeholder_token(stakeholder, request, email):
+def generate_stakeholder_token(stakeholder, login_url, group_name):
     """Generate and return a Stakeholder login token + metadata."""
+    # stakeholder_name, login_url, group_name
     # Invalidate previous unused tokens
-    StakeholderLoginToken.objects.filter(stakeholder=stakeholder, is_used=False).update(
-        is_used=True, used_at=timezone.now()
-    )
+    # StakeholderLoginToken.objects.filter(stakeholder=stakeholder, is_used=False).update(
+    #     is_used=True, used_at=timezone.now()
+    # )
 
-    # Try to get latest invitation
-    invitation = (
-        StakeholderInvitation.objects.filter(
-            email=email, stakeholder_group=stakeholder.group
-        )
-        .order_by("-sent_at")
-        .first()
-    )
+    # # Try to get latest invitation
+    # invitation = (
+    #     StakeholderInvitation.objects.filter(
+    #         email=email, stakeholder_group=stakeholder.group
+    #     )
+    #     .order_by("-sent_at")
+    #     .first()
+    # )
 
-    # Create new token
-    login_token = StakeholderLoginToken.objects.create(
-        stakeholder=stakeholder,
-        stakeholder_invitation=invitation,
-        ip_address=get_client_ip(request),
-        user_agent=request.META.get("HTTP_USER_AGENT", "")[:500],
-    )
-    user = stakeholder
-    role_display = "Stakeholder"
-    stakeholder_name = stakeholder.first_name or stakeholder.email.split("@")[0]
-    group_name = stakeholder.group.name
-    login_url = login_token.get_login_url()
+    # # Create new token
+    # login_token = StakeholderLoginToken.objects.create(
+    #     stakeholder=stakeholder,
+    #     stakeholder_invitation=invitation,
+    #     ip_address=get_client_ip(request),
+    #     user_agent=request.META.get("HTTP_USER_AGENT", "")[:500],
+    # )
+    # user = stakeholder
+    # role_display = "Stakeholder"
+    # stakeholder_name = stakeholder.first_name or stakeholder.email.split("@")[0]
+    # group_name = stakeholder.group.name
+    # login_url = login_token.get_login_url()
 
-    logger.info(f"Generated stakeholder login token for {email}: {login_token.token}")
-    EmailService.send_login_token_email(user, login_url, role_display)
+    # logger.info(f"Generated stakeholder login token for {email}: {login_token.token}")
+    EmailService.send_login_token_email(stakeholder, login_url, group_name)
     # return login_token, stakeholder_name, login_url, group_name

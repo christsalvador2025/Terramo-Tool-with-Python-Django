@@ -8,66 +8,8 @@ from .models import (  Stakeholder,
 from core_apps.clients.models import Client
 from django.conf import settings
 User = settings.AUTH_USER_MODEL
-# class ClientCreateSerializer(serializers.ModelSerializer):
-#     """Serializer for creating clients by Terramo Admin"""
-    
-#     products = serializers.MultipleChoiceField(choices=Client.PRODUCT_CHOICES)
-
-#     class Meta:
-#         model = Client
-#         fields = [
-#             'company_name', 'company_contact_email', 'date_required', 'products',
-#             'first_name', 'last_name', 'gender', 'birth_year',
-#             'street', 'postal_code', 'city', 'country',
-#             'phone_number', 'mobile_number', 'email',
-#             'internal_processing_note'
-#         ]
-
-#     def validate_products(self, value):
-#         if not value:
-#             raise serializers.ValidationError("At least one product must be selected.")
-#         return list(value)  # ✅ Ensure it stays a list
-
-#     def create(self, validated_data):
-#         # ✅ Ensure 'products' is stored as a list (not a set)
-#         validated_data['products'] = list(validated_data.get('products', []))
-        
-#         # Optional: if you're passing created_by manually
-#         created_by = self.context['request'].user if 'request' in self.context else None
-#         if created_by:
-#             validated_data['created_by'] = created_by
-
-#         return Client.objects.create(**validated_data)
-# class ClientCreateSerializer(serializers.ModelSerializer):
-#     """Serializer for creating clients by Terramo Admin"""
-#     products = serializers.MultipleChoiceField(choices=Client.PRODUCT_CHOICES)
-    
-#     class Meta:
-#         model = Client
-#         fields = [
-#             'company_name', 'company_contact_email', 'date_required', 'products',
-#             'first_name', 'last_name', 'gender', 'birth_year',
-#             'street', 'postal_code', 'city', 'country',
-#             'phone_number', 'mobile_number', 'email',
-#             'internal_processing_note'
-#         ]
-    
-#     def validate_products(self, value):
-#         if not value:
-#             raise serializers.ValidationError("At least one product must be selected.")
-#         return value
 from loguru import logger
-# class ClientAdminCreateSerializer(serializers.ModelSerializer):
-#     """Serializer for creating client admin with invitation"""
-    
-#     class Meta:
-#         model = ClientAdmin
-#         fields = ['email', 'first_name', 'last_name']
-    
-#     def validate_email(self, value):
-#         if ClientAdmin.objects.filter(email=value).exists():
-#             raise serializers.ValidationError("Client admin with this email already exists.")
-#         return value
+
 
 class StakeholderGroupSerializer(serializers.ModelSerializer):
     """Serializer for stakeholder groups"""
@@ -84,19 +26,6 @@ class StakeholderGroupSerializer(serializers.ModelSerializer):
     def get_stakeholder_invite_url(self, obj):
         return obj.get_invite_full_url()
 
-# class StakeholderCreateSerializer(serializers.ModelSerializer):
-#     """Serializer for creating stakeholders"""
-    
-#     class Meta:
-#         model = Stakeholder
-#         fields = ['email', 'first_name', 'last_name', 'group']
-#         read_only_fields = ['group']
-    
-#     def validate_email(self, value):
-#         group = self.context.get('group')
-#         if group and Stakeholder.objects.filter(email=value, group=group).exists():
-#             raise serializers.ValidationError("Stakeholder with this email already exists in this group.")
-#         return value
 
 class StakeholderCreateSerializer(serializers.ModelSerializer):
     """Serializer for creating stakeholders"""
@@ -111,17 +40,6 @@ class StakeholderCreateSerializer(serializers.ModelSerializer):
         if group and Stakeholder.objects.filter(email=value, group=group).exists():
             raise serializers.ValidationError("Stakeholder with this email already exists in this group.")
         return value
-# class StakeholderRegistrationSerializer(serializers.ModelSerializer):
-#     """Serializer for stakeholder registration"""
-    
-#     class Meta:
-#         model = Stakeholder
-#         fields = ['first_name', 'last_name']
-    
-#     def validate(self, attrs):
-#         if not attrs.get('first_name') or not attrs.get('last_name'):
-#             raise serializers.ValidationError("First name and last name are required.")
-#         return attrs
 
 class EmailLoginSerializer(serializers.Serializer):
     """Serializer for email-only login"""
@@ -144,16 +62,6 @@ class InvitationTokenSerializer(serializers.ModelSerializer):
     def get_is_valid(self, obj):
         return obj.is_valid()
 
-# class ClientAdminDetailSerializer(serializers.ModelSerializer):
-#     """Detailed serializer for client admin"""
-#     client_company = serializers.CharField(source='client.company_name', read_only=True)
-    
-#     class Meta:
-#         model = ClientAdmin
-#         fields = [
-#             'id', 'email', 'first_name', 'last_name', 
-#             'is_active', 'created_at', 'last_login', 'client_company'
-#         ]
 
 class StakeholderDetailSerializer(serializers.ModelSerializer):
     """Detailed serializer for stakeholder"""
@@ -184,25 +92,6 @@ class ClientSerializer(serializers.ModelSerializer):
             'internal_processing_note'
         ]
         
-# class EmailLoginAuthSerializer(serializers.Serializer):
-#     email = serializers.EmailField()
-    
-#     def validate_email(self, value):
-#         if not value:
-#             raise serializers.ValidationError("Email is required.")
-#         return value.lower()
-    
-# class ClientAdminLoginSerializer(EmailLoginAuthSerializer):
-#     def validate(self, attrs):
-#         email = attrs.get('email')
-        
-#         try:
-#             client_admin = ClientAdmin.objects.get(email=email, is_active=True)
-#             attrs['client_admin'] = client_admin
-#         except ClientAdmin.DoesNotExist:
-#             raise serializers.ValidationError("Invalid email or client admin not found.")
-        
-#         return attrs
 
 
 """
@@ -405,75 +294,6 @@ class ApproveRejectSerializer(serializers.Serializer):
 Updated: Stakeholders -- End --
 """
 
-# class InvitationValidateSerializer(serializers.Serializer):
-#     invitation_token = serializers.UUIDField()
-
-#     def validate(self, attrs):
-#         token = attrs['invitation_token']
-#         try:
-#             invitation = StakeholderInvitation.objects.select_related('stakeholder_group').get(
-#                 invitation_token=token
-#             )
-#         except StakeholderInvitation.DoesNotExist:
-#             raise serializers.ValidationError("Invalid or expired invitation token.")
-
-#         if invitation.is_expired:
-#             raise serializers.ValidationError("Invitation has expired.")
-
-#         attrs['invitation'] = invitation
-#         return attrs
-
-
-# class EmailRequestVerificationSerializer(serializers.Serializer):
-#     email = serializers.EmailField()
-#     invitation_token = serializers.UUIDField()
-
-#     def validate(self, attrs):
-#         email = attrs['email']
-#         token = attrs['invitation_token']
-
-#         try:
-#             invitation = StakeholderInvitation.objects.select_related('stakeholder_group').get(
-#                 invitation_token=token
-#             )
-#         except StakeholderInvitation.DoesNotExist:
-#             raise serializers.ValidationError("Invalid invitation token.")
-
-#         if invitation.is_expired:
-#             raise serializers.ValidationError("Invitation expired.")
-
-#         # Check if stakeholder exists in this group
-#         stakeholder = Stakeholder.objects.filter(
-#             email=email,
-#             group=invitation.stakeholder_group
-#         ).first()
-
-#         attrs['stakeholder'] = stakeholder
-#         attrs['invitation'] = invitation
-#         return attrs
-
-#     def create(self, validated_data):
-#         stakeholder = validated_data['stakeholder']
-#         invitation = validated_data['invitation']
-#         email = validated_data['email']
-
-#         if not stakeholder:
-#             # Create new stakeholder
-#             stakeholder = Stakeholder.objects.create(
-#                 email=email,
-#                 group=invitation.stakeholder_group,
-#                 status='pending',
-#                 is_registered=False,
-#                 user=None  # Will be set upon full registration
-#             )
-
-#         # Link stakeholder to invitation
-#         invitation.stakeholder = stakeholder
-#         invitation.status = 'email_verified'
-#         invitation.email_verified_at = timezone.now()
-#         invitation.save()
-
-#         return stakeholder
 from django.utils import timezone
 class InvitationValidationSerializer(serializers.Serializer):
     """Serializer to validate invitation token"""
@@ -502,34 +322,6 @@ class InvitationValidationSerializer(serializers.Serializer):
             raise serializers.ValidationError("Invalid or expired invitation token.")
 
 
-# class EmailSubmissionSerializer(serializers.Serializer):
-#     """Serializer for email submission in invitation process"""
-#     email = serializers.EmailField()
-#     token = serializers.UUIDField()
-    
-#     def validate(self, data):
-#         email = data['email']
-#         token = data['token']
-        
-#         # Validate token exists
-#         try:
-#             stakeholder_group = StakeholderGroup.objects.get(
-#                 invitation_token=token, 
-#                 is_active=True
-#             )
-#         except StakeholderGroup.DoesNotExist:
-#             raise serializers.ValidationError("Invalid invitation token.")
-        
-#         # Check if email already exists in this group
-#         existing_stakeholder = Stakeholder.objects.filter(
-#             email=email, 
-#             group=stakeholder_group
-#         ).first()
-        
-#         data['stakeholder_group'] = stakeholder_group
-#         data['existing_stakeholder'] = existing_stakeholder
-        
-#         return data
 
 class EmailSubmissionSerializer(serializers.Serializer):
     """Serializer for email submission in invitation process."""
@@ -591,77 +383,7 @@ class EmailSubmissionSerializer(serializers.Serializer):
             "existing_invitation": existing_invitation,
         })
         return attrs
-# class StakeholderRegistrationSerializer(serializers.Serializer):
-#     """Serializer for stakeholder registration"""
-#     # email = serializers.EmailField(read_only=True)  # Email is already provided from previous step
-#     email = serializers.EmailField()
-#     first_name = serializers.CharField(max_length=100)
-#     last_name = serializers.CharField(max_length=100)
-#     token = serializers.UUIDField()
-    
-#     def validate(self, data):
-#         # Validate token and get stakeholder group
-#         try:
-#             # stakeholder_group = StakeholderGroup.objects.get(
-#             #     invitation_token=data['token'], 
-#             #     is_active=True
-#             # )
-#              stakeholder = Stakeholder.objects.get(
-#                 email=data['email'], 
-#                 # is_active=True
-#             )
-#         except Stakeholder.DoesNotExist:
-#             raise serializers.ValidationError("Stakeholder not found.")
-        
-#         data['stakeholder_group'] = stakeholder_group
-        
-#         return data
-    
-#     def create(self, validated_data):
-#         # stakeholder_group = validated_data['stakeholder_group']
-        
-#         # Get email from the stakeholder that was created in the email submission step
-#         # We need to get this from context or pass it separately
-#         # email = self.context.get('email')
-#         email = validated_data['email']
-#         if not email:
-#             raise serializers.ValidationError("Email is required for registration.")
-        
-#         # Update existing stakeholder with registration details
-#         # print(f"stakeholder_group - {stakeholder_group}")
-#         print(f"email - {email}")
-#         print(f"token - {validated_data['token']}")
-#         try:
-#             stakeholder = Stakeholder.objects.get(
-#                 email=email,
-#                 # group=stakeholder_group,
-#                 is_registered=False
-#             )
-            
-      
-#             stakeholder.first_name = validated_data['first_name']
-#             stakeholder.last_name = validated_data['last_name']
-#             stakeholder.is_registered = True
-#             stakeholder.save()
-        
-#         except Stakeholder.DoesNotExist:
-#             raise serializers.ValidationError("Stakeholder not found or already registered.")
-        
-#         except Exception as e:
-#             print(f"errort --- {e}")
-#             raise serializers.ValidationError(f"Error : {e}")
-#         # Update stakeholder invitation status to email_verified
-#         stakeholder_invitation = StakeholderInvitation.objects.filter(
-#             email=email,
-#             # stakeholder_group=stakeholder_group
-#         ).first()
-        
-#         if stakeholder_invitation:
-#             stakeholder_invitation.status = 'email_verified'
-#             stakeholder_invitation.email_verified_at = timezone.now()
-#             stakeholder_invitation.save()
-        
-#         return stakeholder
+
 
 
 class StakeholderRegistrationSerializer(serializers.Serializer):
@@ -672,35 +394,18 @@ class StakeholderRegistrationSerializer(serializers.Serializer):
     # stakeholder_id = serializers.UUIDField() # this is the stakeholder id pass by payload
     token = serializers.UUIDField() # this is an id of the stakeholder.
  
-    # invitation_token = serializers.UUIDField()
-    # group_id = serializers.UUIDField()
-    # client_id = serializers.UUIDField()
-    
     def validate(self, data):
          
         try:
             request = self.context.get('request')
   
-    #         if request:
-    #             token = request.data.get('token')
-    #             client_id = request.data.get('client_id') or None
-            # if request:
-            # existing_stakeholder = (
-            #     Stakeholder.objects
-            #     .filter(email__iexact=email, group=stakeholder_group)
-            #     .select_related("user")
-            #     .first()
-            # )
             print(f"data-----{data}")
             stakeholder = Stakeholder.objects.get(
                 id=data['token'],
                 is_registered=False,
                 # email__iexact=request.data.get('email'),
             )
-    # if stakeholder.email != data['email']:
-    # raise serializers.ValidationError({
-    #     "email": "Email does not match."
-    # })
+
             if stakeholder:
                 print(f"stakeholder=>{stakeholder.email}, get email {data['email']}, group - {stakeholder.group.id}")
                 if stakeholder.email != data['email']:
@@ -766,23 +471,6 @@ class StakeholderUserRegistrationSerializer(serializers.Serializer):
     client_id = serializers.UUIDField()
     
 
-    # def validate_token_and_client(self,data):
-    #     try:
-    #         request = self.context.get('request')
-  
-    #         if request:
-    #             token = request.data.get('token')
-    #             client_id = request.data.get('client_id') or None
-    #             stakeholder_group = StakeholderGroup.objects.get(
-    #                 invitation_token=token,
-    #                 is_active=True, 
-    #                 disable_the_invitation=False,
-    #             )
-           
-    #         return data
-        
-    #     except StakeholderGroup.DoesNotExist:
-    #         raise serializers.ValidationError("Invalid or expired invitation token.")
         
     def validate(self, data):
         request = self.context.get('request')
@@ -796,11 +484,7 @@ class StakeholderUserRegistrationSerializer(serializers.Serializer):
                 raise serializers.ValidationError(
                     "A stakeholder with this email already exists in this group."
                 )
-            # print(f"data['stakeholder_id']---{data['stakeholder_id']}")
-            # stakeholder = Stakeholder.objects.get(
-            #     id=data['token'],
-            #     is_registered=False
-            # )
+      
       
         except Exception as e:
             raise serializers.ValidationError({
@@ -812,86 +496,7 @@ class StakeholderUserRegistrationSerializer(serializers.Serializer):
         
         return data
  
-    
-    # def create(self, validated_data):
-    #     stakeholder = validated_data['stakeholder']
-     
-    #     stakeholder.first_name = validated_data['first_name']
-    #     stakeholder.last_name = validated_data['last_name']
-    #     stakeholder.is_registered = True
-    #     stakeholder.save()
-
-    #     # Optionally update invitation status
-    #     invitation = StakeholderInvitation.objects.filter(
-    #         stakeholder=stakeholder
-    #     ).first()
-    #     if invitation:
-    #         invitation.status = 'email_verified'
-    #         invitation.email_verified_at = timezone.now()
-    #         invitation.save()
-
-    #     return stakeholder
-# class StakeholderApprovalSerializer(serializers.ModelSerializer):
-#     """Serializer for stakeholder approval by client admin"""
-#     class Meta:
-#         model = Stakeholder
-#         fields = ['id', 'status']
-#         read_only_fields = ['id']
-    
-#     def validate_status(self, value):
-#         if value not in ['approved', 'rejected']:
-#             raise serializers.ValidationError("Status must be either 'approved' or 'rejected'.")
-#         return value
-    
-#     def update(self, instance, validated_data):
-#         status = validated_data.get('status')
-        
-#         if status == 'approved':
-#             # Create user account
-#             user, user_created = User.objects.get_or_create(
-#                 email=instance.email,
-#                 defaults={
-#                     'username': instance.email,
-#                     'first_name': instance.first_name,
-#                     'last_name': instance.last_name,
-#                     'role': 'stakeholder',
-#                     'client': instance.group.client,
-#                     'is_active': True
-#                 }
-#             )
-            
-#             # Update stakeholder
-#             instance.user = user
-#             instance.is_registered = True
-#             instance.status = 'approved'
-#             instance.save()
-            
-#             # Update invitation status
-#             invitation = StakeholderInvitation.objects.filter(
-#                 email=instance.email,
-#                 stakeholder_group=instance.group
-#             ).first()
-            
-#             if invitation:
-#                 invitation.status = 'completed'
-#                 invitation.completed_at = timezone.now()
-#                 invitation.save()
-        
-#         else:  # rejected
-#             instance.status = 'rejected'
-#             instance.save()
-            
-#             # Update invitation status
-#             invitation = StakeholderInvitation.objects.filter(
-#                 email=instance.email,
-#                 stakeholder_group=instance.group
-#             ).first()
-            
-#             if invitation:
-#                 invitation.status = 'expired'
-#                 invitation.save()
-        
-#         return instance
+   
 from django.db import transaction
 from core_apps.esg.models import ESGQuestion, ESGQuestionResponse
 
@@ -1028,142 +633,7 @@ except ImportError:
     LOGIN_TOKEN_AVAILABLE = False
     logger.warning("StakeholderLoginToken model not available")
 
-# class CreateStakeholderSerializer(serializers.Serializer):
-#     email = serializers.EmailField(validators=[EmailValidator()])
-#     first_name = serializers.CharField(max_length=100, required=False, allow_blank=True)
-#     last_name = serializers.CharField(max_length=100, required=False, allow_blank=True)
-#     send_invitation = serializers.BooleanField(default=True)
 
-#     def validate_email(self, value):
-#         group_id = self.context.get('group_id')
-        
-#         # Check if stakeholder already exists in this group
-#         if Stakeholder.objects.filter(email=value, group_id=group_id).exists():
-#             raise serializers.ValidationError(
-#                 "A stakeholder with this email already exists in this group."
-#             )
-        
-#         # Check if there's already a pending invitation for this group
-#         if StakeholderInvitation.objects.filter(
-#             email=value, 
-#             stakeholder_group_id=group_id,
-#             status__in=['sent', 'clicked', 'email_verified']
-#         ).exists():
-#             raise serializers.ValidationError(
-#                 "A pending invitation already exists for this email in this group."
-#             )
-        
-#         return value
-
-#     def create(self, validated_data):
-#         group_id = self.context.get('group_id')
-#         request_user = self.context['request'].user
-        
-#         group = StakeholderGroup.objects.get(id=group_id)
-        
-#         # Generate auto password for user creation
-#         auto_pwd = get_random_string(length=12)
-        
-#         # Create stakeholder with approved status if created by admin
-#         stakeholder = Stakeholder.objects.create(
-#             email=validated_data['email'],
-#             first_name=validated_data.get('first_name', ''),
-#             last_name=validated_data.get('last_name', ''),
-#             group=group,
-#             status='approved',  # Auto-approve when created by admin
-#             is_registered=True
-#         )
-        
-#         # Create user account for the stakeholder
-#         try:
-#             user_obj = UserData.objects.create_user(
-#                 email=stakeholder.email,
-#                 first_name=stakeholder.first_name,
-#                 last_name=stakeholder.last_name,
-#                 password=auto_pwd,
-#                 role="stakeholder",   
-#                 client=stakeholder.group.client,
-#                 is_active=True,
-#             )
-            
-#             # Link stakeholder to user
-#             stakeholder.user = user_obj
-#             stakeholder.is_registered = True
-#             stakeholder.save()
-            
-#             # Create ESG responses for the user
-#             if ESG_AVAILABLE:
-#                 self.create_esg_responses_for_user(user_obj)
-            
-#             logger.info(f"Successfully created user and linked to stakeholder: {stakeholder.email}")
-            
-#         except Exception as e:
-#             logger.error(f"Failed to create user for stakeholder {stakeholder.email}: {e}")
-#             # Optionally, you might want to rollback stakeholder creation or handle this differently
-#             raise serializers.ValidationError(f"Failed to create user account: {str(e)}")
-        
-#         # Create invitation if requested
-#         if validated_data.get('send_invitation', True):
-#             expires_at = timezone.now() + timedelta(days=7)  # 7 days expiry
-#             StakeholderInvitation.objects.create(
-#                 stakeholder_group=group,
-#                 email=validated_data['email'],
-#                 sent_by=request_user,
-#                 expires_at=expires_at,
-#                 stakeholder=stakeholder,
-#                 status='delivered'
-#             )
-        
-#         return stakeholder
-
-#     def create_esg_responses_for_user(self, user):
-#         """
-#         Create ESGQuestionResponse records for a stakeholder user
-#         """
-#         if not ESG_AVAILABLE:
-#             logger.warning("ESG models not available, skipping ESG response creation")
-#             return []
-            
-#         # Get current ESG year
-#         current_year = ESGYear.get_current_year()
-        
-#         if not current_year:
-#             logger.warning("No current ESG year found, skipping ESG response creation")
-#             return []
-        
-#         # Get all active ESG questions for the current year
-#         active_questions = ESGQuestion.objects.filter(
-#             year=current_year,
-#             is_active=True
-#         ).select_related('category')
-        
-#         if not active_questions.exists():
-#             logger.warning(f"No active ESG questions found for year {current_year.year}")
-#             return []
-        
-#         # Create ESGQuestionResponse records
-#         responses_to_create = []
-#         for question in active_questions:
-#             response = ESGQuestionResponse(
-#                 question=question,
-#                 user=user,
-#                 questionnaire_type='stakeholder',
-#                 status='draft'
-#             )
-#             responses_to_create.append(response)
-        
-#         try:
-#             # Bulk create for better performance
-#             created_responses = ESGQuestionResponse.objects.bulk_create(
-#                 responses_to_create, 
-#                 ignore_conflicts=True
-#             )
-#             logger.info(f"Created {len(responses_to_create)} ESG question responses for {user.email}")
-#             return created_responses
-#         except Exception as e:
-#             logger.error(f"Failed to create ESG responses for {user.email}: {e}")
-#             return []
-        
 
 class CreateStakeholderSerializer(serializers.Serializer):
     email = serializers.EmailField(validators=[EmailValidator()])
@@ -1257,10 +727,7 @@ class CreateStakeholderSerializer(serializers.Serializer):
                 status='sent'
             )
         
-        # Create login token and send login link if requested
-        # if validated_data.get('send_login_link', True) and LOGIN_TOKEN_AVAILABLE:
-        #     self.create_and_send_login_token(stakeholder, stakeholder_invitation, request)
-        
+      
         return stakeholder
 
     def create_and_send_login_token(self, stakeholder, stakeholder_invitation, request):
@@ -1528,17 +995,7 @@ class StakeholderGroupTerramoSerializer(serializers.ModelSerializer):
         ]
         read_only_fields = ['id', 'created_at', 'updated_at']
     
-    # def get_stakeholder_users(self, obj):
-    #     request = self.context.get('request')
-    #     if request and hasattr(request.user, 'role'):
-    #         if request.user.role == 'terramo_admin':
-    #             return []
-    #         elif request.user.role == 'client_admin':
-    #             if obj.is_template:
-    #                 return obj.get_stakeholder_users(request.user.client)
-    #             else:
-    #                 return obj.get_stakeholder_users(request.user.client)
-    #     return []
+
     
     def get_stakeholder_count(self, obj):
         request = self.context.get('request')

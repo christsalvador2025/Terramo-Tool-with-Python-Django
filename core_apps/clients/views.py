@@ -1392,10 +1392,24 @@ class ClientAdminTokenLoginView(APIView):
                     'email': invitation.client.email,
                 }
             }
-            
+            if(user.role == "client_admin"):
+                client_products = user.client.clientproduct_set.select_related('product').all()
+                print("--client admin----")
+                data = []
+                for cp in client_products:
+                    data.append({
+                        'id': cp.id,
+                        'product': ProductSerializer(cp.product).data,
+                        'purchased_at': cp.purchased_at,
+                        'expires_at': cp.expires_at,
+                        'is_active': cp.is_active
+                    })
+
+                response_data["product"] = data
+              
             # return Response(response_data, status=status.HTTP_200_OK)
             response = Response(response_data, status=status.HTTP_200_OK)
-                
+            print(f"response--{response}")
             # Set authentication cookies (if you have this function)
             try:
                 set_auth_cookies(response, access_token, refresh_token)

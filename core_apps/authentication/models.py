@@ -44,88 +44,6 @@ import hashlib
 from django.utils.translation import gettext_lazy as _
 from core_apps.clients.models import Client
 from core_apps.user_auth.models import User
-# User = settings.AUTH_USER_MODEL
-# class User(AbstractUser):
-#     """Extended User model for Terramo Admin only"""
-#     email = models.EmailField(unique=True)
-#     role = models.CharField(
-#         max_length=20,
-#         choices=[('terramo_admin', 'Terramo Admin')],
-#         default='terramo_admin'
-#     )
-    
-#     USERNAME_FIELD = 'email'
-#     REQUIRED_FIELDS = ['username']
-
-#     def __str__(self):
-#         return self.email
-
-# class Client(models.Model):
-#     """Client company model"""
-#     PRODUCT_CHOICES = [
-#         ('esg_check', 'ESG-Check'),
-#         ('stakeholder_analysis', 'Stakeholder Analysis'),
-#         ('materiality_analysis', 'Materiality Analysis'),
-#     ]
-    
-#     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
-#     company_name = models.CharField(max_length=255)
-#     company_contact_email = models.EmailField()
-#     date_required = models.DateField()
-    
-#     # Product details - can select multiple
-#     products = models.JSONField(default=list)  # Store selected products as list
-    
-#     # Contact person details
-#     first_name = models.CharField(max_length=100)
-#     last_name = models.CharField(max_length=100)
-#     gender = models.CharField(
-#         max_length=40,
-#         choices=[
-#             ('male', 'Male'),
-#             ('female', 'Female'),
-#             ('other', 'Other'),
-#             ('prefer_not_to_say', 'Prefer not to say')
-#         ],
-#         blank=True
-#     )
-#     birth_year = models.IntegerField(null=True, blank=True)
-    
-#     # Address details
-#     street = models.CharField(max_length=255)
-#     postal_code = models.CharField(max_length=20)
-#     city = models.CharField(max_length=100)
-#     country = models.CharField(max_length=100)
-    
-#     # Contact details
-#     phone_number = models.CharField(max_length=20)
-#     mobile_number = models.CharField(max_length=20, blank=True)
-#     email = models.EmailField()
-    
-#     # Additional info
-#     internal_processing_note = models.TextField(blank=True)
-    
-#     created_at = models.DateTimeField(auto_now_add=True)
-#     updated_at = models.DateTimeField(auto_now=True)
-#     created_by = models.ForeignKey(User, on_delete=models.CASCADE)
-    
-#     def __str__(self):
-#         return f"{self.company_name} - {self.first_name} {self.last_name}"
-
-# class ClientAdmin(models.Model):
-#     """Client Admin model - not in User table"""
-#     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
-#     client = models.OneToOneField(Client, on_delete=models.CASCADE, related_name='admin')
-#     email = models.EmailField(unique=True, validators=[EmailValidator()])
-#     first_name = models.CharField(max_length=100)
-#     last_name = models.CharField(max_length=100)
-#     is_active = models.BooleanField(default=True)
-#     created_at = models.DateTimeField(auto_now_add=True)
-#     last_login = models.DateTimeField(null=True, blank=True)
-    
-#     def __str__(self):
-#         return f"{self.email} - {self.client.company_name}"
-    
 
 """
 UPDATED STAKEHOLDERS: ------ START ------
@@ -272,40 +190,7 @@ UPDATED STAKEHOLDERS: ----- END ------
 """
 
 
-# class StakeholderGroup(models.Model):
-#     """Stakeholder groups created by Client Admin"""
-#     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
-#     name = models.CharField(max_length=100)
-#     client = models.ForeignKey(Client, on_delete=models.CASCADE, related_name='stakeholder_groups')
-#     created_by = models.ForeignKey(User, on_delete=models.CASCADE)
-#     created_at = models.DateTimeField(auto_now_add=True)
-#     is_active = models.BooleanField(default=True)
-#     invitation_token = models.UUIDField(default=uuid.uuid4, unique=True, editable=False)
 
-#     class Meta:
-#         unique_together = ['name', 'client']
-    
-#     def __str__(self):
-#         return f"{self.name} - {self.client.company_name}"
-#     def get_invite_full_url(self):
-#         return f"{settings.DOMAIN}/{self.invitation_token}/"
-    
-# class Stakeholder(models.Model):
-#     """Stakeholder model - not in User table"""
-#     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
-#     email = models.EmailField(validators=[EmailValidator()])
-#     first_name = models.CharField(max_length=100, blank=True)
-#     last_name = models.CharField(max_length=100, blank=True)
-#     group = models.ForeignKey(StakeholderGroup, on_delete=models.CASCADE, related_name='stakeholders')
-#     is_registered = models.BooleanField(default=False)
-#     created_at = models.DateTimeField(auto_now_add=True)
-#     last_login = models.DateTimeField(null=True, blank=True)
-    
-#     class Meta:
-#         unique_together = ['email', 'group']
-    
-#     def __str__(self):
-#         return f"{self.email} - {self.group.name}"
 
 class InvitationToken(models.Model):
     """Token model for invitations and login"""
@@ -319,14 +204,7 @@ class InvitationToken(models.Model):
     token = models.CharField(max_length=255, unique=True)
     token_type = models.CharField(max_length=25, choices=TOKEN_TYPES)
     
-    # For client admin invitations
-    # client_admin = models.ForeignKey(
-    #     ClientAdmin, 
-    #     on_delete=models.CASCADE, 
-    #     null=True, 
-    #     blank=True,
-    #     related_name='invitation_tokens'
-    # )
+    
     
     # For stakeholder invitations
     stakeholder = models.ForeignKey(
@@ -365,54 +243,6 @@ class InvitationToken(models.Model):
     def __str__(self):
         return f"{self.token_type} - {self.email} - {'Valid' if self.is_valid() else 'Invalid'}"
 
-# class InvitationTokenData(models.Model):
-#     TOKEN_TYPES = [
-#         ('client_admin_invite', 'Client Admin Invitation'),
-#         ('stakeholder_invite', 'Stakeholder Invitation'),
-#         ('login_token', 'Login Token'),
-#     ]
-    
-#     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
-#     token = models.UUIDField(default=uuid.uuid4, unique=True)
-#     token_type = models.CharField(max_length=30, choices=TOKEN_TYPES)
-#     email = models.EmailField(validators=[EmailValidator()])
-    
-#     # Foreign keys for different token types
-#     client_admin = models.ForeignKey(ClientAdmin, on_delete=models.CASCADE, null=True, blank=True, related_name='clientadmin_invitation_tokens')
-#     stakeholder = models.ForeignKey(Stakeholder, on_delete=models.CASCADE, null=True, blank=True, related_name='stakeholder_invitation_tokens')
-#     created_by_user = models.ForeignKey(User, on_delete=models.CASCADE, null=True, blank=True, related_name='user_tokens_created')
-#     created_by_client_admin = models.ForeignKey(ClientAdmin, on_delete=models.CASCADE, null=True, blank=True, related_name='tokens_created_by_client')
-    
-#     is_used = models.BooleanField(default=False)
-#     is_active = models.BooleanField(default=True)
-#     expires_at = models.DateTimeField()
-#     used_at = models.DateTimeField(null=True, blank=True)
-#     created_at = models.DateTimeField(auto_now_add=True)
-    
-#     def save(self, *args, **kwargs):
-#         if not self.expires_at:
-#             if self.token_type == 'login_token':
-#                 self.expires_at = timezone.now() + timedelta(hours=1)  # 1 hour for login tokens
-#             else:
-#                 self.expires_at = timezone.now() + timedelta(days=7)  # 7 days for invitation tokens
-#         super().save(*args, **kwargs)
-    
-#     def is_expired(self):
-#         return timezone.now() > self.expires_at
-    
-#     def is_valid(self):
-#         return self.is_active and not self.is_used and not self.is_expired()
-    
-#     def mark_as_used(self):
-#         self.is_used = True
-#         self.used_at = timezone.now()
-#         self.save()
-    
-#     class Meta:
-#         unique_together = ['token', 'token_type']
-    
-#     def __str__(self):
-#         return f"{self.get_token_type_display()} - {self.email}"
     
 class LoginSession(models.Model):
     """Track login sessions for non-User entities"""
@@ -425,14 +255,6 @@ class LoginSession(models.Model):
     session_key = models.CharField(max_length=255, unique=True)
     session_type = models.CharField(max_length=20, choices=SESSION_TYPES)
     
-    # For client admin sessions
-    # client_admin = models.ForeignKey(
-    #     ClientAdmin,
-    #     on_delete=models.CASCADE,
-    #     null=True,
-    #     blank=True,
-    #     related_name='login_sessions'
-    # )
     
     # For stakeholder sessions
     stakeholder = models.ForeignKey(

@@ -891,7 +891,13 @@ class ESGDashboardViewSet(viewsets.ViewSet):
             is_active=True
         ).select_related('category')
         
+        
         # Filter responses that are submitted and belong to the client users
+        current_client = Client.objects.filter(
+            id=client.id,
+            is_active=True,
+        )
+        
         client_user_ids = [user.id for user in stakeholder_users]
         responses = ESGQuestionResponse.objects.filter(
             question__year=current_year,
@@ -1509,7 +1515,7 @@ class ESGDashboardViewSet(viewsets.ViewSet):
     
     def calculate_category_averages_with_year(self, client, current_year):
         """Calculate average priority and status quo for each question under each category."""
-        from django.db.models import Avg, Count, Q
+        # from django.db.models import Avg, Count, Q
         
         # Get client users (stakeholder and client admin)
         stakeholder_groups = StakeholderGroup.objects.filter(
@@ -1539,6 +1545,7 @@ class ESGDashboardViewSet(viewsets.ViewSet):
         # stakeholder_groups = StakeholderGroup.objects.filter(client=client, is_active=True)
         stakeholder_users = []
         
+       
         for group in combine_stakeholder_groups:
             stakeholders = Stakeholder.objects.filter(
                 group=group, 
@@ -1548,6 +1555,10 @@ class ESGDashboardViewSet(viewsets.ViewSet):
                 client=client,
             )
             stakeholder_users.extend([s.user for s in stakeholders])
+
+        # if current_clientadmin_user:
+        #     stakeholder_users.append(current_clientadmin_user)
+
         try:
             client_admin = User.objects.get(client=client, role='client_admin')
             stakeholder_users.append(client_admin)
@@ -1564,6 +1575,7 @@ class ESGDashboardViewSet(viewsets.ViewSet):
         
         # Filter responses that are submitted and belong to the client users
         client_user_ids = [user.id for user in stakeholder_users]
+      
         responses = ESGQuestionResponse.objects.filter(
             question__year=current_year,
             user_id__in=client_user_ids,
@@ -3061,49 +3073,7 @@ class ESGDashboardViewSet(viewsets.ViewSet):
     #  ================================================================================
     #        2. START: STAKEHOLDER ANAYLSIS 
     #  ================================================================================
-    # Add these methods to your ESGDashboardViewSet class
-
-    # @action(detail=False, methods=['post'])
-    # def create_stakeholder_group(self, request):
-    #     """Create a new stakeholder group"""
-    #     user = request.user
-        
-    #     # Get user's client
-    #     try:
-    #         client = user.client
-    #     except AttributeError:
-    #         return Response({'error': 'User is not associated with a client'}, 
-    #                         status=status.HTTP_403_FORBIDDEN)
-
-    #     name = request.data.get('name', '').strip()
-    #     if not name:
-    #         return Response({'error': 'Name is required'}, 
-    #                         status=status.HTTP_400_BAD_REQUEST)
-
-    #     # Check if group already exists
-    #     if StakeholderGroup.objects.filter(client=client, name__iexact=name, is_active=True).exists():
-    #         return Response({'error': 'Stakeholder group with this name already exists'}, 
-    #                         status=status.HTTP_400_BAD_REQUEST)
-
-    #     # Create the group
-    #     group = StakeholderGroup.objects.create(
-    #         client=client,
-    #         name=name,
-    #         is_active=True
-    #     )
-
-    #     return Response({
-    #         'message': 'Stakeholder group created successfully',
-    #         'group': {
-    #             'id': str(group.id),
-    #             'name': group.name,
-    #             'display_name': group.name,
-    #             'stakeholder_count': 0,
-    #             'is_default': False,
-    #             'has_responses': False,
-    #             'invitation_link': group.get_invite_full_url()
-    #         }
-    #     }, status=status.HTTP_201_CREATED)
+    
     def create_esg_responses_for_user(self, user):
         """
         Create ESGQuestionResponse records for a client admin user

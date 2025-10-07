@@ -264,6 +264,7 @@ from rest_framework_simplejwt.exceptions import TokenError, InvalidToken
 from rest_framework.permissions import AllowAny, IsAuthenticated
 import hashlib
 from django.core.cache import cache
+from core_apps.products.serializers import ProductSerializer
 def set_auth_cookies(
     response: Response, access_token: str, refresh_token: Optional[str] = None
 ) -> None:
@@ -686,6 +687,8 @@ class LogoutView(APIView):
         response.delete_cookie('refresh', path=settings.COOKIE_PATH)
         response.delete_cookie('logged_in', path=settings.COOKIE_PATH)
         response.delete_cookie('user', path=settings.COOKIE_PATH)
+        response.delete_cookie('product', path=settings.COOKIE_PATH)
+        
         # response.delete_cookie('user_id', path=settings.COOKIE_PATH)
         # response.delete_cookie('user_email', path=settings.COOKIE_PATH)
 
@@ -697,6 +700,8 @@ class LogoutAPIView(APIView):
         response.delete_cookie("access")
         response.delete_cookie("refresh")
         response.delete_cookie("logged_in")
+        response.delete_cookie("user")
+        response.delete_cookie('product', path=settings.COOKIE_PATH)
         return response
 
 
