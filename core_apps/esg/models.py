@@ -63,7 +63,7 @@ class ESGCategory(TimeStampedModel):
     display_name = models.CharField(max_length=100)
     description = models.TextField(blank=True, null=True)
     is_active = models.BooleanField(default=True)
-    
+    category_prefix = models.CharField(blank=False, null=False, max_length=1)
     
     class Meta:
         db_table = 'esg_categories'

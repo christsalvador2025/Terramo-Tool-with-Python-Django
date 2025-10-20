@@ -99,7 +99,7 @@ class ClientSerializer(serializers.ModelSerializer):
             'id', 'company_name', 'date', 'company_photo', 'role',
             'contact_person_first_name', 'contact_person_last_name',
             'gender', 'year_of_birth', 'street', 'zip_code', 'location',
-            'landline_number', 'mobile_phone_number', 'city', 'land',
+            'landline_number', 'mobile_phone_number', 'land',
             'email', 'miscellaneous', 'is_active', 'created_by', 'created_by_username',
             'created_at', 'updated_at', 'invite_link' # Include the new field here
         ]
@@ -294,7 +294,7 @@ class ClientCreateDataSerializer(serializers.ModelSerializer):
 
             # Address Details
             'street', 'zip_code', 'location', 'landline_number',
-            'mobile_phone_number', 'city', 'land', 'email',
+            'mobile_phone_number', 'land', 'email',
 
             # Other fields
             'miscellaneous', 'is_active',
@@ -316,7 +316,7 @@ class ClientCreateDataSerializer(serializers.ModelSerializer):
             'year_of_birth': {'required': True},
             'street': {'required': True},
             'location': {'required': True},
-            'city': {'required': True},
+            # 'city': {'required': True},
         }
 
     def get_invitation_raw_token(self, obj):
@@ -409,7 +409,7 @@ class ClientListSerializer(serializers.ModelSerializer):
         model = Client
         fields = [
             'id', 'company_name', 'company_photo','company_photo_url','contact_person_first_name',
-            'contact_person_last_name', 'email', 'city', 'land',
+            'contact_person_last_name', 'email', 'land',
             'is_active', 'products_count', 'invitation_status',
             'created_at'
         ]
@@ -454,7 +454,7 @@ class ClientDetailSerializer(serializers.ModelSerializer):
             
             # Address Details
             'street', 'zip_code', 'location', 'landline_number',
-            'mobile_phone_number', 'city', 'land', 'email',
+            'mobile_phone_number', 'land', 'email',
             
             # Other fields
             'miscellaneous', 'is_active', 'invitation_token',

@@ -159,7 +159,7 @@ class ClientViewDataSet(ModelViewSet):
     
     throttle_classes = [UserRateThrottle]
     filter_backends = [DjangoFilterBackend, filters.SearchFilter, filters.OrderingFilter]
-    filterset_fields = ['is_active', 'role', 'gender', 'land', 'city']
+    filterset_fields = ['is_active', 'role', 'gender', 'land']
     search_fields = ['company_name', 'email', 'contact_person_first_name', 'contact_person_last_name']
     ordering_fields = ['company_name', 'email', 'created_at']
     ordering = ['company_name']

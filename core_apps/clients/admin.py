@@ -192,11 +192,12 @@ class ClientAdmin(admin.ModelAdmin):
             'description': 'Information about the primary contact for this client.', 
         }),
         ('Address Details', { 
-            'fields': ('street', 'zip_code', 'location', 'landline_number', 'mobile_phone_number', 'city', 'land',),
+            'fields': ('street', 'zip_code', 'location', 'landline_number', 'mobile_phone_number', 'land',),
             'description': 'Information about the address of the client', 
         }),
         (None, {"fields": ("is_active",'miscellaneous',)}),
     )
+    #  'city'
 
     readonly_fields = ["id", "invitation_token"]
     actions = ['send_invitation']

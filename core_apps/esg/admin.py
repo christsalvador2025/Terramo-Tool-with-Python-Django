@@ -17,7 +17,7 @@ class ESGYearAdmin(admin.ModelAdmin):
 @admin.register(ESGCategory)
 class ESGCategoryAdmin(admin.ModelAdmin):
     """Admin configuration for the ESGCategory model."""
-    list_display = ['name', 'display_name', 'is_active', 'created_at']
+    list_display = ['name', 'display_name','category_prefix', 'is_active', 'created_at']
     list_filter = ['is_active']
     search_fields = ['name', 'display_name']
     ordering = ['name']

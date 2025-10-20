@@ -40,16 +40,16 @@ class Client(TimeStampedModel):
 
     class Gender(models.TextChoices):
         MALE = (
-            "male",
-            _("Male"),
+            "Männlich",
+            _("Männlich"),
         )
         FEMALE = (
-            "female",
-            _("Female"),
+            "Weiblich",
+            _("Weiblich"),
         )
         OTHER = (
-            "other",
-            _("Other"),
+            "Divers",
+            _("Divers"),
         )
     class CompanyRole(models.TextChoices):
         TERRAMO_CUSTOMER = "Terramo Customer", _("Terramo Customer")
@@ -107,7 +107,7 @@ class Client(TimeStampedModel):
     mobile_phone_number = PhoneNumberField(
         _("Phone Number"), max_length=30, default=settings.DEFAULT_PHONE_NUMBER
     )
-    city = models.CharField(_("City"), max_length=50)
+    # city = models.CharField(_("City"), max_length=50)
     land = CountryField(_("Land"), default=settings.DEFAULT_COUNTRY)
     email = models.EmailField(blank=True, null=True)
     invitation_token = models.UUIDField(default=uuid.uuid4, unique=True, editable=False)

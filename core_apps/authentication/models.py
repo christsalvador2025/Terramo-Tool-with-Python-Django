@@ -100,6 +100,10 @@ class StakeholderGroup(models.Model):
         
 class Stakeholder(models.Model):
     """Stakeholder model - not in User table"""
+    # request_count = models.PositiveIntegerField(default=0)
+    # last_requested_at = models.DateTimeField(auto_now=True)
+    # blocked_until = models.DateTimeField(null=True, blank=True)
+
     
     STATUS_CHOICES = [
         ('pending', 'Pending'),
@@ -126,12 +130,26 @@ class Stakeholder(models.Model):
     last_login = models.DateTimeField(null=True, blank=True)
     user = models.OneToOneField(User, on_delete=models.SET_NULL, null=True, blank=True, related_name='usr_stakeholder')
     is_active = models.BooleanField(default=True)
-
+    
     class Meta:
         unique_together = ['email', 'group']
     
     def __str__(self):
         return f"{self.email} - {self.group.name}"
+    
+    # def is_blocked(self):
+    #     return self.blocked_until and self.blocked_until > timezone.now()
+
+    # def increment_request(self):
+    #     self.request_count += 1
+    #     self.last_requested_at = timezone.now()
+    #     self.save()
+
+    # def reset_count_if_needed(self):
+    #     """Reset daily or after X minutes."""
+    #     if timezone.now() - self.last_requested_at > timedelta(minutes=30):
+    #         self.request_count = 0
+    #         self.save()
 
 class StakeholderInvitation(models.Model):
     """Track stakeholder invitations"""
